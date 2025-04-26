@@ -1,0 +1,53 @@
+{
+  "name": "scripts-orchestrator",
+  "version": "1.0.0",
+  "description": "A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks",
+  "main": "lib/index.js",
+  "type": "module",
+  "bin": {
+    "scripts-orchestrator": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "lint": "eslint .",
+    "prepare": "npm run lint"
+  },
+  "keywords": [
+    "orchestrator",
+    "script",
+    "parallel",
+    "process",
+    "health-check",
+    "dependency",
+    "background",
+    "automation",
+    "ci",
+    "testing"
+  ],
+  "author": "vivekkodira@gmail.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vivekkodira/scripts-orchestrator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vivekkodira/scripts-orchestrator/issues"
+  },
+  "homepage": "https://github.com/vivekkodira/scripts-orchestrator#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  },
+  "files": [
+    "lib/",
+    "index.js",
+    "scripts-orchestrator.config.js",
+    "README.md"
+  ]
+}
