@@ -2,14 +2,25 @@
 
 A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks. Perfect for CI/CD pipelines and automated testing workflows.
 
+## Why?
+I don't have access to a mature CI/CD solution. As the project grows, I have added several scripts to my package.json which I need to run as sanity. Ex: `build, test, lint, test-storybook, playwright, stylelint` etc. I wanted a script that 
+
+
+* would run the commands specified in my package in parallel
+* be OS agnostic
+* start & stop any dependencies
+* keep the terminal clean
+* log in the right places
+* give me a clear go/no-go indication at the end
+
+There don't seem to be any existing npm packages that meet my needs so I wrote one. 
+
 ## Installation
 
 ```bash
 # Install as a development dependency
 npm install --save-dev scripts-orchestrator
 
-# Or install globally
-npm install -g scripts-orchestrator
 ```
 
 ## Features
@@ -47,7 +58,7 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
 
 ## Command Types
 
-The orchestrator is completely agnostic to what commands it runs. It can execute any npm scripts or shell commands. Common use cases include:
+The orchestrator is completely agnostic to what commands it runs. It can execute any npm scripts. Common use cases include:
 
 1. **Build Processes**: Compile, bundle, or build your project
 2. **Testing**: Run unit tests, integration tests, or end-to-end tests
@@ -56,7 +67,7 @@ The orchestrator is completely agnostic to what commands it runs. It can execute
 5. **Deployment**: Run deployment scripts or environment checks
 6. **Custom Scripts**: Execute any custom npm scripts or shell commands
 
-The orchestrator doesn't care what the commands do - it just ensures they run in the correct order, handles dependencies, manages background processes, and provides proper logging and error handling.
+The orchestrator doesn't care what the commands do - it just ensures they run (in parallel), handles dependencies, manages background processes, and provides proper logging and error handling.
 
 ## Usage
 
@@ -81,19 +92,6 @@ The orchestrator doesn't care what the commands do - it just ensures they run in
    npm run scripts-orchestrator -- ./path/to/your/config.js
    ```
 
-### Global Installation
-
-1. Create a configuration file in your project root
-2. Configure your commands in the config file
-3. Run the orchestrator:
-   ```bash
-   # Using default config file (scripts-orchestrator.config.js)
-   scripts-orchestrator
-
-   # Or specify a custom config file
-   scripts-orchestrator ./path/to/your/config.js
-   ```
-
 ## Error Handling
 
 - The script tracks failed and skipped commands
@@ -103,7 +101,7 @@ The orchestrator doesn't care what the commands do - it just ensures they run in
 
 ## Logging
 
-- Each command's output is logged to `logs/scripts-orchestrator_<command>.log`
+- Each command's output is logged to `scripts-orchestrator-logs/<command>.log` in the current working directory
 - Provides real-time status updates during execution
 - Summarizes results at the end of execution
 
@@ -112,20 +110,13 @@ The orchestrator doesn't care what the commands do - it just ensures they run in
 - `0`: All commands executed successfully
 - `1`: One or more commands failed or were skipped
 
-## Signal Handling
+## Disclaimer
 
-The script properly handles various termination signals:
-- SIGINT (Ctrl+C)
-- SIGTERM
-- SIGQUIT
-- SIGHUP
-- Uncaught exceptions
-- Unhandled rejections
+This software is provided "as is", without warranty of any kind, express or implied. The author(s) shall not be liable for any claims, damages, or other liabilities arising from the use of this software. Users are responsible for testing and verifying the software in their own environment before using it in production.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-
-MIT © Vivek Kodira 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
