@@ -1,11 +1,11 @@
 {
   "name": "scripts-orchestrator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks",
   "main": "lib/index.js",
   "type": "module",
   "bin": {
-    "scripts-orchestrator": "./index.js"
+    "scripts-orchestrator": "index.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -29,12 +29,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vivekkodira/scripts-orchestrator.git"
+    "url": "git+https://github.com/Pratishthan/scripts-orchestrator"
   },
   "bugs": {
-    "url": "https://github.com/vivekkodira/scripts-orchestrator/issues"
+    "url": "https://github.com/Pratishthan/scripts-orchestrator/issues"
   },
-  "homepage": "https://github.com/vivekkodira/scripts-orchestrator#readme",
+  "homepage": "https://github.com/Pratishthan/scripts-orchestrator#readme",
   "engines": {
     "node": ">=14.0.0"
   },
