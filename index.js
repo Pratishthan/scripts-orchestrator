@@ -21,7 +21,9 @@ if (!fs.existsSync(configPath)) {
 }
 
 // Import the config file
-const commandsConfig = (await import(path.resolve(process.cwd(), configPath))).default;
+const configFilePath = path.resolve(process.cwd(), configPath);
+const fileUrl = new URL(`file://${configFilePath}`).href;
+const commandsConfig = (await import(fileUrl)).default;
 
 // Create and run the orchestrator
 const orchestrator = new Orchestrator(commandsConfig);
