@@ -1,6 +1,6 @@
 {
   "name": "scripts-orchestrator",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks",
   "main": "lib/index.js",
   "type": "module",
@@ -29,7 +29,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pratishthan/scripts-orchestrator"
+    "url": "git+https://github.com/Pratishthan/scripts-orchestrator.git"
   },
   "bugs": {
     "url": "https://github.com/Pratishthan/scripts-orchestrator/issues"
