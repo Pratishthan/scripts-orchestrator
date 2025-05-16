@@ -1,3 +1,6 @@
 node_modules
 dist
 scripts-orchestrator-*tgz
+scripts-orchestrator-logs
+test.log
+coverage
