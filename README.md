@@ -39,13 +39,14 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
 
 ```javascript
 {
-  command: 'command_name',        // The npm script to run
-  description: 'Description',     // Optional description
-  status: 'enabled',             // 'enabled' or 'disabled'
-  attempts: 1,                   // Number of retry attempts
-  dependencies: [],              // Array of dependent commands
-  background: false,             // Whether to run in background
-  health_check: {                // Health check configuration
+  command: 'command_name',           // The npm script to run
+  description: 'Description',        // Optional description
+  status: 'enabled',                 // 'enabled' or 'disabled'
+  attempts: 1,                       // Number of retry attempts
+  dependencies: [],                 // Array of dependent commands
+  background: false,                // Whether to run in background
+  kill_command: 'kill_storybook',   // Optional kill command to kill the process
+  health_check: {                   // Health check configuration
     url: 'http://localhost:port',
     max_attempts: 20,
     interval: 2000
