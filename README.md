@@ -88,111 +88,47 @@ export default [
 ];
 ```
 
-### Storybook Testing with Background Process
+### Basic Build and Test Pipeline with Phases
 ```javascript
-export default [
-  {
-    command: 'test-storybook',
-    description: 'Run Storybook tests',
-    status: 'enabled',
-    attempts: 2,
-    dependencies: [
-      {
-        command: 'storybook_silent',
-        background: true,
-        wait: 5000,
-        health_check: {
-          url: 'http://localhost:6006',
-          max_attempts: 20,
-          interval: 2000
+export default {
+  phases: [
+    {
+      name: 'build',
+      parallel: [
+        {
+          command: 'build',
+          description: 'Build the project',
+          status: 'enabled',
+          attempts: 1
         }
-      }
-    ]
-  }
-];
-```
-
-### Playwright Testing with Development Server
-```javascript
-export default [
-  {
-    command: 'playwright_ci',
-    description: 'Run Playwright tests',
-    status: 'enabled',
-    attempts: 1,
-    dependencies: [
-      {
-        command: 'dev',
-        background: true,
-        health_check: {
-          url: 'http://localhost:5173',
-          max_attempts: 20,
-          interval: 2000
+      ]
+    },
+    {
+      name: 'test',
+      parallel: [
+        {
+          command: 'test',
+          description: 'Run unit tests',
+          status: 'enabled',
+          attempts: 2,
+          should_retry: (output) => {
+            // Only retry if there are actual test failures
+            const testSummaryMatch = output.match(/Test Suites:.*?(\d+) failed/);
+            return testSummaryMatch && parseInt(testSummaryMatch[1]) > 0;
+          }
+        },
+        {
+          command: 'lint',
+          description: 'Run lint checks',
+          status: 'enabled'
         }
-      }
-    ]
-  }
-];
-```
-
-### Full CI Pipeline with Multiple Checks
-```javascript
-export default [
-  {
-    command: 'build',
-    description: 'Build the project',
-    status: 'enabled',
-    attempts: 1
-  },
-  {
-    command: 'test-ci',
-    description: 'Run unit tests',
-    status: 'enabled',
-    attempts: 2,
-    should_retry: (output) => {
-      const testSummaryMatch = output.match(/Test Suites:.*?(\d+) failed/);
-      const hasTestFailures = testSummaryMatch && parseInt(testSummaryMatch[1]) > 0;
-      const hasCoverageFailures = output.match(/Jest: "global" coverage threshold/);
-      
-      // Only retry for actual test failures, not coverage issues
-      return hasTestFailures;
+      ]
     }
-  },
-  {
-    command: 'test-storybook',
-    description: 'Run Storybook tests',
-    status: 'enabled',
-    attempts: 2,
-    dependencies: [
-      {
-        command: 'storybook_silent',
-        background: true,
-        wait: 5000,
-        health_check: {
-          url: 'http://localhost:6006',
-          max_attempts: 20,
-          interval: 2000
-        }
-      }
-    ]
-  },
-  {
-    command: 'stylelint',
-    description: 'Run stylelint checks',
-    status: 'enabled'
-  },
-  {
-    command: 'lint',
-    description: 'Run lint checks',
-    status: 'enabled'
-  },
-  {
-    command: 'jscpd',
-    description: 'Run code duplication checks',
-    status: 'enabled'
-  }
-];
+  ]
+};
 ```
+
+See more examples [here](./docs/samples.md)
 
 ## Command Types
 
@@ -248,10 +184,15 @@ The orchestrator doesn't care what the commands do - it just ensures they run (i
 - `0`: All commands executed successfully
 - `1`: One or more commands failed or were skipped
 
+
+## History
+See [versions](./docs/versions.md)
+
 ## Roadmap
 - Better UX to indicate what is happening
 - Tests to avoid regression
 - Retry should append to the log file
+- Run any shell command rather than assume the command is specified in package.json (? tentative)
 
 
 ## Disclaimer
@@ -265,30 +206,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Using as a Linked Package (Development/Monorepo)
 
-If you want to use this orchestrator directly in another repository (for local development or monorepo setups), you can use `npm link`:
-
-1. In the scripts-orchestrator project root, run:
-   ```bash
-   npm link
-   ```
-   This makes the orchestrator available globally on your system as a symlinked package.
-
-2. In your target project (the repo where you want to use the orchestrator), run:
-   ```bash
-   npm link scripts-orchestrator
-   ```
-   This links the orchestrator package into your project's `node_modules`.
-
-3. You can now use it in your target project as described above (add to your `package.json` scripts, create a config, etc.).
-
-4. To unlink later, run:
-   ```bash
-   npm unlink scripts-orchestrator
-   ```
-   in your target project, and optionally
-   ```bash
-   npm unlink --global scripts-orchestrator
-   ```
-   in the orchestrator repo.
