@@ -192,7 +192,6 @@ See [versions](./docs/versions.md)
 ## Roadmap
 - Better UX to indicate what is happening
 - Tests to avoid regression
-- Retry should append to the log file
 - Run any shell command rather than assume the command is specified in package.json (? tentative)
 
 
