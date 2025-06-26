@@ -18,3 +18,8 @@ Works!
 
 ### 2.4.0
 * Fix logic to fail catastrophically if sub-commands fail. 
+
+
+### 2.4.2
+* Fix some Promise.all instances to be Promise.allSettled
+* Fix order of code which could be causing the process to hang

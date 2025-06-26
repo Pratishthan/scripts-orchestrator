@@ -1,6 +1,6 @@
 {
   "name": "scripts-orchestrator",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks",
   "main": "lib/index.js",
   "type": "module",
