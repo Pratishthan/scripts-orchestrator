@@ -10,13 +10,28 @@ import fs from 'fs';
 import { Orchestrator } from './lib/index.js';
 import { log } from './lib/logger.js';
 
-// Get config file path from command line arguments
-const configPath = process.argv[2] || './scripts-orchestrator.config.js';
+// Parse command line arguments
+const args = process.argv.slice(2);
+let configPath = './scripts-orchestrator.config.js';
+let startPhase = null;
+
+// Parse arguments
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  
+  if (arg === '--phase' && i + 1 < args.length) {
+    startPhase = args[i + 1];
+    i++; // Skip the next argument since we consumed it
+  } else if (!arg.startsWith('--') && !configPath) {
+    // First non-flag argument is the config path
+    configPath = arg;
+  }
+}
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
   log.error(`Error: Config file not found at ${configPath}`);
-  log.error('Usage: scripts-orchestrator [path-to-config-file]');
+  log.error('Usage: scripts-orchestrator [path-to-config-file] [--phase <phase-name>]');
   process.exit(1);
 }
 
@@ -25,8 +40,13 @@ const configFilePath = path.resolve(process.cwd(), configPath);
 const fileUrl = new URL(`file://${configFilePath}`).href;
 const commandsConfig = (await import(fileUrl)).default;
 
+// Check for start_phase in config if not provided via command line
+if (!startPhase && commandsConfig.start_phase) {
+  startPhase = commandsConfig.start_phase;
+}
+
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig);
+const orchestrator = new Orchestrator(commandsConfig, startPhase);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {

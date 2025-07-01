@@ -23,3 +23,11 @@ Works!
 ### 2.4.2
 * Fix some Promise.all instances to be Promise.allSettled
 * Fix order of code which could be causing the process to hang
+
+### 2.5.0
+* Added support for starting from a specific phase
+* New command line argument `--phase <phase-name>` to specify starting phase
+* New configuration option `start_phase` to set default starting phase
+* Command line arguments take precedence over configuration file settings
+* Improved error handling with validation of specified start phase
+* Commands in skipped phases are properly marked in the final summary

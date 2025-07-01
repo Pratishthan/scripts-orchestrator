@@ -165,7 +165,40 @@ The orchestrator doesn't care what the commands do - it just ensures they run (i
 
    # Or specify a custom config file
    npm run scripts-orchestrator -- ./path/to/your/config.js
+
+   # Start from a specific phase
+   npm run scripts-orchestrator -- --phase "unit tests"
+
+   # Start from a specific phase with custom config
+   npm run scripts-orchestrator -- ./path/to/your/config.js --phase "playwright"
    ```
+
+### Starting from a Specific Phase
+
+You can start the orchestrator from a specific phase instead of running all phases from the beginning. This is useful for debugging or when you want to skip earlier phases that have already been completed.
+
+#### Method 1: Command Line Argument
+```bash
+# Start from the "unit tests" phase
+npm run scripts-orchestrator -- --phase "unit tests"
+```
+
+#### Method 2: Configuration File
+```javascript
+export default {
+  start_phase: "unit tests",  // Start from this phase
+  phases: [
+    // ... your phases
+  ]
+};
+```
+
+**Note**: Command line arguments take precedence over configuration file settings.
+
+When starting from a specific phase:
+- All phases before the specified phase are skipped
+- Commands in skipped phases are marked as "skipped" in the final summary
+- The orchestrator validates that the specified phase exists and shows available phases if not found
 
 ## Error Handling
 
