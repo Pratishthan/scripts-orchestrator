@@ -31,3 +31,12 @@ Works!
 * Command line arguments take precedence over configuration file settings
 * Improved error handling with validation of specified start phase
 * Commands in skipped phases are properly marked in the final summary
+
+### 2.6.0
+* Added support for configurable log folder location
+* New command line argument `--logFolder <directory>` to specify parent directory for logs
+* New configuration option `log_folder` to set default log folder parent directory
+* The `scripts-orchestrator-logs` folder will be created inside the specified directory
+* Cross-platform compatibility for Windows, macOS, and Linux
+* Automatic directory creation with recursive path support
+* Command line arguments take precedence over configuration file settings

@@ -14,6 +14,7 @@ import { log } from './lib/logger.js';
 const args = process.argv.slice(2);
 let configPath = './scripts-orchestrator.config.js';
 let startPhase = null;
+let logFolder = null;
 
 // Parse arguments
 for (let i = 0; i < args.length; i++) {
@@ -21,6 +22,9 @@ for (let i = 0; i < args.length; i++) {
   
   if (arg === '--phase' && i + 1 < args.length) {
     startPhase = args[i + 1];
+    i++; // Skip the next argument since we consumed it
+  } else if (arg === '--logFolder' && i + 1 < args.length) {
+    logFolder = args[i + 1];
     i++; // Skip the next argument since we consumed it
   } else if (!arg.startsWith('--') && !configPath) {
     // First non-flag argument is the config path
@@ -31,7 +35,7 @@ for (let i = 0; i < args.length; i++) {
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
   log.error(`Error: Config file not found at ${configPath}`);
-  log.error('Usage: scripts-orchestrator [path-to-config-file] [--phase <phase-name>]');
+  log.error('Usage: scripts-orchestrator [path-to-config-file] [--phase <phase-name>] [--logFolder <log-directory>]');
   process.exit(1);
 }
 
@@ -45,8 +49,13 @@ if (!startPhase && commandsConfig.start_phase) {
   startPhase = commandsConfig.start_phase;
 }
 
+// Check for log_folder in config if not provided via command line
+if (!logFolder && commandsConfig.log_folder) {
+  logFolder = commandsConfig.log_folder;
+}
+
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig, startPhase);
+const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
