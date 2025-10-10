@@ -44,3 +44,6 @@ Works!
 #### 2.7.0
 * Improved handling of log file name.
 * Added support for optional phases
+
+#### 2.7.1
+* Added support for `env` 

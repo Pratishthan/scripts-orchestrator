@@ -31,6 +31,8 @@ npm install --save-dev scripts-orchestrator
 - **Retry Mechanism**: Configurable retry attempts for failed commands
 - **Process Management**: Proper cleanup of background processes
 - **Health Checks**: Verifies service availability before proceeding
+- **Environment Variables**: Pass custom environment variables to commands
+- **Optional Phases**: Mark phases as optional and run them selectively
 - **Comprehensive Logging**: Detailed logging of command execution and results
 
 ## Configuration
@@ -45,6 +47,10 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
   attempts: 1,                       // Number of retry attempts
   dependencies: [],                 // Array of dependent commands
   background: false,                // Whether to run in background
+  env: {                            // Optional environment variables
+    PORT: 3000,
+    NODE_ENV: 'production'
+  },
   kill_command: 'kill_storybook',   // Optional kill command to kill the process
   health_check: {                   // Health check configuration
     url: 'http://localhost:port',
@@ -153,6 +159,52 @@ export default {
     }
   ]
 };
+```
+
+### Using Environment Variables
+
+You can pass custom environment variables to commands using the `env` property. This is useful for configuring ports, API endpoints, or any environment-specific settings:
+
+```javascript
+export default {
+  phases: [
+    {
+      name: 'playwright',
+      parallel: [
+        {
+          command: 'playwright_ci',
+          description: 'Run Playwright tests',
+          env: {
+            PLAYWRIGHT_PORT: 5173,
+            API_URL: 'http://localhost:3000',
+            TEST_ENV: 'ci'
+          },
+          status: 'enabled',
+          attempts: 1,
+          dependencies: [
+            {
+              command: 'dev',
+              background: true,
+              env: {
+                PORT: 5173
+              },
+              health_check: {
+                url: 'http://localhost:5173',
+                max_attempts: 20,
+                interval: 2000
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+```
+
+The command will run with the environment variables set, equivalent to:
+```bash
+PLAYWRIGHT_PORT=5173 API_URL=http://localhost:3000 TEST_ENV=ci npm run playwright_ci
 ```
 
 See more examples [here](./docs/samples.md)

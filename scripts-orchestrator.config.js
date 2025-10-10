@@ -99,6 +99,9 @@ export default {
         {
           command: 'playwright_ci',
           description: 'Run Playwright tests',
+          env: {
+            PLAYWRIGHT_PORT: 5173,
+          },
           status: 'enabled',
           attempts: 1, //Playwright internally retries in CI mode
           dependencies: [
