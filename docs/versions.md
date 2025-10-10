@@ -20,7 +20,7 @@ Works!
 * Fix logic to fail catastrophically if sub-commands fail. 
 
 
-### 2.4.2
+#### 2.4.2
 * Fix some Promise.all instances to be Promise.allSettled
 * Fix order of code which could be causing the process to hang
 
@@ -40,3 +40,7 @@ Works!
 * Cross-platform compatibility for Windows, macOS, and Linux
 * Automatic directory creation with recursive path support
 * Command line arguments take precedence over configuration file settings
+
+#### 2.7.0
+* Improved handling of log file name.
+* Added support for optional phases
