@@ -57,6 +57,20 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
 }
 ```
 
+### Phase Configuration
+
+When using the phases format, each phase can have the following properties:
+
+```javascript
+{
+  name: 'phase_name',               // The name of the phase
+  optional: true,                   // Whether this phase is optional (default: false)
+  parallel: [                       // Array of commands to run in parallel
+    // ... command configurations
+  ]
+}
+```
+
 ## Example Configurations
 
 Here are some practical examples of how to configure the orchestrator for different scenarios:
@@ -124,6 +138,18 @@ export default {
           status: 'enabled'
         }
       ]
+    },
+    {
+      name: 'optional-e2e',
+      optional: true,
+      parallel: [
+        {
+          command: 'playwright',
+          description: 'Run end-to-end tests',
+          status: 'enabled',
+          attempts: 1
+        }
+      ]
     }
   ]
 };
@@ -171,6 +197,12 @@ The orchestrator doesn't care what the commands do - it just ensures they run (i
 
    # Start from a specific phase with custom config
    npm run scripts-orchestrator -- ./path/to/your/config.js --phase "playwright"
+
+   # Run specific optional phases
+   npm run scripts-orchestrator -- --phases "optional-e2e,optional-performance"
+
+   # Run with verbose logging
+   npm run scripts-orchestrator -- --verbose
    ```
 
 ### Starting from a Specific Phase
@@ -199,6 +231,59 @@ When starting from a specific phase:
 - All phases before the specified phase are skipped
 - Commands in skipped phases are marked as "skipped" in the final summary
 - The orchestrator validates that the specified phase exists and shows available phases if not found
+
+### Optional Phases
+
+You can mark phases as optional by adding `optional: true` to the phase configuration. Optional phases will only run if explicitly requested via the `--phases` command line argument.
+
+#### Configuration
+```javascript
+export default {
+  phases: [
+    {
+      name: 'build',
+      parallel: [
+        { command: 'build', description: 'Build the project' }
+      ]
+    },
+    {
+      name: 'optional-e2e',
+      optional: true,  // This phase is optional
+      parallel: [
+        { command: 'playwright', description: 'Run end-to-end tests' }
+      ]
+    },
+    {
+      name: 'optional-performance',
+      optional: true,  // This phase is optional
+      parallel: [
+        { command: 'lighthouse', description: 'Run performance tests' }
+      ]
+    }
+  ]
+};
+```
+
+#### Usage
+```bash
+# Run only the default phases (build, test, etc.)
+npm run scripts-orchestrator
+
+# Run specific optional phases
+npm run scripts-orchestrator -- --phases "optional-e2e"
+
+# Run multiple optional phases
+npm run scripts-orchestrator -- --phases "optional-e2e,optional-performance"
+
+# Run all phases including optional ones
+npm run scripts-orchestrator -- --phases "build,test,optional-e2e,optional-performance"
+```
+
+**Note**: 
+- Optional phases are skipped by default unless explicitly requested
+- You can combine `--phase` and `--phases` arguments
+- The orchestrator validates that all specified phases exist
+- Commands in skipped optional phases are marked as "skipped" in the final summary
 
 ## Error Handling
 

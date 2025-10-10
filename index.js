@@ -9,33 +9,43 @@ import path from 'path';
 import fs from 'fs';
 import { Orchestrator } from './lib/index.js';
 import { log } from './lib/logger.js';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-let configPath = './scripts-orchestrator.config.js';
-let startPhase = null;
-let logFolder = null;
+// Parse command line arguments using yargs
+const argv = yargs(hideBin(process.argv))
+  .option('verbose', {
+    alias: 'v',
+    type: 'boolean',
+    description: 'Run with verbose logging',
+  })
+  .option('phase', {
+    type: 'string',
+    description: 'Start execution from a specific phase',
+  })
+  .option('phases', {
+    type: 'string',
+    description: 'Comma-separated list of phases to run (for optional phases)',
+  })
+  .option('logFolder', {
+    type: 'string',
+    description: 'Specify the directory for log files',
+  })
+  .help()
+  .alias('h', 'help')
+  .parse();
 
-// Parse arguments
-for (let i = 0; i < args.length; i++) {
-  const arg = args[i];
-  
-  if (arg === '--phase' && i + 1 < args.length) {
-    startPhase = args[i + 1];
-    i++; // Skip the next argument since we consumed it
-  } else if (arg === '--logFolder' && i + 1 < args.length) {
-    logFolder = args[i + 1];
-    i++; // Skip the next argument since we consumed it
-  } else if (!arg.startsWith('--') && !configPath) {
-    // First non-flag argument is the config path
-    configPath = arg;
-  }
-}
+// Extract arguments
+const args = argv._;
+const configPath = args[0] || './scripts-orchestrator.config.js';
+let startPhase = argv.phase;
+let logFolder = argv.logFolder;
+const phases = argv.phases ? argv.phases.split(',').map(p => p.trim()) : null;
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
   log.error(`Error: Config file not found at ${configPath}`);
-  log.error('Usage: scripts-orchestrator [path-to-config-file] [--phase <phase-name>] [--logFolder <log-directory>]');
+  log.error('Use --help for usage information');
   process.exit(1);
 }
 
@@ -55,7 +65,7 @@ if (!logFolder && commandsConfig.log_folder) {
 }
 
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder);
+const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
