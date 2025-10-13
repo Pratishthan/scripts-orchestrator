@@ -46,4 +46,14 @@ Works!
 * Added support for optional phases
 
 #### 2.7.1
-* Added support for `env` 
+* Added support for `env`
+
+### 2.8.0
+* Added git-based caching to skip execution when repository state is unchanged
+* Orchestrator now checks git commit hash and repository status before running
+* Cache file `.git-hash-cache` is stored in the log folder
+* Execution is skipped when:
+  - Git commit hash matches cached hash
+  - No staged or unstaged changes are present
+* Cache is only updated on successful execution
+* Improves efficiency in CI/CD pipelines by avoiding redundant runs 

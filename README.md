@@ -33,6 +33,7 @@ npm install --save-dev scripts-orchestrator
 - **Health Checks**: Verifies service availability before proceeding
 - **Environment Variables**: Pass custom environment variables to commands
 - **Optional Phases**: Mark phases as optional and run them selectively
+- **Git-Based Caching**: Automatically skips execution when git state is unchanged
 - **Comprehensive Logging**: Detailed logging of command execution and results
 
 ## Configuration
@@ -347,8 +348,24 @@ npm run scripts-orchestrator -- --phases "build,test,optional-e2e,optional-perfo
 ## Logging
 
 - Each command's output is logged to `scripts-orchestrator-logs/<command>.log` in the current working directory
+- Git commit hash is cached in `scripts-orchestrator-logs/.git-hash-cache` for skip detection
 - Provides real-time status updates during execution
 - Summarizes results at the end of execution
+
+## Git-Based Caching
+
+The orchestrator automatically tracks the git commit hash and repository state to optimize execution:
+
+- **On first run**: Records the current git commit hash in `scripts-orchestrator-logs/.git-hash-cache`
+- **On subsequent runs**: Checks if:
+  - The git commit hash matches the cached hash
+  - There are no staged or unstaged changes in the repository
+- **When conditions are met**: Skips execution entirely with message `✓ Git state unchanged`
+- **When conditions fail**: Runs normally and updates the cache on successful completion
+
+This feature is particularly useful in CI/CD pipelines where the same commit might be processed multiple times, saving time and resources by avoiding redundant executions.
+
+**Note**: The cache is only updated on successful execution. Failed runs will not update the cache, ensuring subsequent runs will retry.
 
 ## Exit Codes
 
