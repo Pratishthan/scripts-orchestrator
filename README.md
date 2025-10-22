@@ -26,6 +26,7 @@ npm install --save-dev scripts-orchestrator
 ## Features
 
 - **Parallel Execution**: Runs multiple commands concurrently for faster execution
+- **Sequential Mode**: Option to run all commands sequentially for low CPU machines
 - **Dependency Management**: Handles command dependencies and ensures proper execution order
 - **Background Processes**: Supports running commands in the background with health checks
 - **Retry Mechanism**: Configurable retry attempts for failed commands
@@ -256,6 +257,12 @@ The orchestrator doesn't care what the commands do - it just ensures they run (i
 
    # Run with verbose logging
    npm run scripts-orchestrator -- --verbose
+
+   # Run in sequential mode (for low CPU machines)
+   npm run scripts-orchestrator -- --sequential
+
+   # Specify a custom log folder
+   npm run scripts-orchestrator -- --logFolder ./custom-logs
    ```
 
 ### Starting from a Specific Phase
@@ -338,6 +345,29 @@ npm run scripts-orchestrator -- --phases "build,test,optional-e2e,optional-perfo
 - The orchestrator validates that all specified phases exist
 - Commands in skipped optional phases are marked as "skipped" in the final summary
 
+### Sequential Mode
+
+By default, the orchestrator runs commands within each phase in parallel for optimal performance. However, you can use the `--sequential` flag to run all commands sequentially, which is useful for low CPU machines or when you need to reduce resource consumption.
+
+#### Usage
+```bash
+# Run all commands sequentially instead of in parallel
+npm run scripts-orchestrator -- --sequential
+```
+
+When running in sequential mode:
+- Commands within each phase are executed one at a time
+- Phases still run sequentially (as they always do)
+- If a command fails, the remaining commands in that phase are skipped
+- Lower CPU and memory usage compared to parallel execution
+- Longer total execution time
+
+This is particularly useful for:
+- CI/CD environments with limited resources
+- Development machines with low CPU/memory
+- Debugging individual command failures
+- Avoiding resource contention between commands
+
 ## Error Handling
 
 - The script tracks failed and skipped commands
@@ -348,9 +378,34 @@ npm run scripts-orchestrator -- --phases "build,test,optional-e2e,optional-perfo
 ## Logging
 
 - Each command's output is logged to `scripts-orchestrator-logs/<command>.log` in the current working directory
+- Main orchestrator logs are saved to `scripts-orchestrator-logs/orchestrator-main-<timestamp>.log`
 - Git commit hash is cached in `scripts-orchestrator-logs/.git-hash-cache` for skip detection
 - Provides real-time status updates during execution
 - Summarizes results at the end of execution
+
+### Custom Log Folder
+
+You can customize the log folder location using either the command line or configuration file:
+
+#### Method 1: Command Line Argument
+```bash
+# Use a custom log folder
+npm run scripts-orchestrator -- --logFolder ./my-custom-logs
+```
+
+#### Method 2: Configuration File
+```javascript
+export default {
+  log_folder: './my-custom-logs',  // Custom log folder
+  phases: [
+    // ... your phases
+  ]
+};
+```
+
+**Note**: Command line arguments take precedence over configuration file settings.
+
+All logs (command logs, main orchestrator logs, and git cache) will be stored in the specified folder.
 
 ## Git-Based Caching
 

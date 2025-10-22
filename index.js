@@ -31,6 +31,10 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'Specify the directory for log files',
   })
+  .option('sequential', {
+    type: 'boolean',
+    description: 'Run all commands sequentially instead of in parallel (for low CPU machines)',
+  })
   .help()
   .alias('h', 'help')
   .parse();
@@ -41,6 +45,7 @@ const configPath = args[0] || './scripts-orchestrator.config.js';
 let startPhase = argv.phase;
 let logFolder = argv.logFolder;
 const phases = argv.phases ? argv.phases.split(',').map(p => p.trim()) : null;
+const sequential = argv.sequential || false;
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
@@ -64,8 +69,13 @@ if (!logFolder && commandsConfig.log_folder) {
   logFolder = commandsConfig.log_folder;
 }
 
+// Set the log folder for the main orchestrator logs if specified
+if (logFolder) {
+  log.setLogFolder(logFolder);
+}
+
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases);
+const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases, sequential);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
