@@ -56,4 +56,10 @@ Works!
   - Git commit hash matches cached hash
   - No staged or unstaged changes are present
 * Cache is only updated on successful execution
-* Improves efficiency in CI/CD pipelines by avoiding redundant runs 
+* Improves efficiency in CI/CD pipelines by avoiding redundant runs
+
+### 2.10.0
+* Added `--force` flag to bypass git cache check and force execution
+* New command line argument `--force` to execute regardless of git state
+* Useful for re-running commands without code changes or testing configuration
+* Log message now indicates how to force execution when skipping 

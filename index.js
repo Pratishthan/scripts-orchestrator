@@ -35,6 +35,10 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     description: 'Run all commands sequentially instead of in parallel (for low CPU machines)',
   })
+  .option('force', {
+    type: 'boolean',
+    description: 'Force execution even if git state is unchanged',
+  })
   .help()
   .alias('h', 'help')
   .parse();
@@ -46,6 +50,7 @@ let startPhase = argv.phase;
 let logFolder = argv.logFolder;
 const phases = argv.phases ? argv.phases.split(',').map(p => p.trim()) : null;
 const sequential = argv.sequential || false;
+const force = argv.force || false;
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
@@ -75,7 +80,7 @@ if (logFolder) {
 }
 
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases, sequential);
+const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases, sequential, force);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {

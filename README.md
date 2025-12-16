@@ -263,6 +263,9 @@ The orchestrator doesn't care what the commands do - it just ensures they run (i
 
    # Specify a custom log folder
    npm run scripts-orchestrator -- --logFolder ./custom-logs
+
+   # Force execution even if git state is unchanged
+   npm run scripts-orchestrator -- --force
    ```
 
 ### Starting from a Specific Phase
@@ -421,6 +424,21 @@ The orchestrator automatically tracks the git commit hash and repository state t
 This feature is particularly useful in CI/CD pipelines where the same commit might be processed multiple times, saving time and resources by avoiding redundant executions.
 
 **Note**: The cache is only updated on successful execution. Failed runs will not update the cache, ensuring subsequent runs will retry.
+
+### Force Execution
+
+You can bypass the git cache check and force execution even when the git state is unchanged by using the `--force` flag:
+
+```bash
+# Force execution regardless of git state
+npm run scripts-orchestrator -- --force
+```
+
+This is useful when you want to:
+- Re-run commands without making code changes
+- Test configuration changes
+- Debug issues without modifying the codebase
+- Override the cache in CI/CD pipelines
 
 ## Exit Codes
 
