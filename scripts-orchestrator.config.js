@@ -1,4 +1,10 @@
 export default {
+  // Optional: metrics to report (time, memory). CLI --metrics overrides.
+  // metrics: ['time'],
+  // Optional: path for JSON results, or '-' for stdout. CLI --json-results overrides.
+  // json_results: './scripts-orchestrator-results.json',
+  // Optional: path for HTML report. CLI --html-results overrides.
+  // html_results: './scripts-orchestrator-results.html',
   phases: [
     {
       name: 'build',

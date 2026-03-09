@@ -39,6 +39,18 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     description: 'Force execution even if git state is unchanged',
   })
+  .option('metrics', {
+    type: 'string',
+    description: 'Comma-separated metrics to collect and report: time, memory',
+  })
+  .option('json-results', {
+    type: 'string',
+    description: 'Write results JSON to this path; use "-" for stdout only',
+  })
+  .option('html-results', {
+    type: 'string',
+    description: 'Write HTML report to this path; use "-" for stdout only',
+  })
   .help()
   .alias('h', 'help')
   .parse();
@@ -51,6 +63,8 @@ let logFolder = argv.logFolder;
 const phases = argv.phases ? argv.phases.split(',').map(p => p.trim()) : null;
 const sequential = argv.sequential || false;
 const force = argv.force || false;
+
+const validMetrics = ['time', 'memory'];
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {
@@ -74,13 +88,46 @@ if (!logFolder && commandsConfig.log_folder) {
   logFolder = commandsConfig.log_folder;
 }
 
+// Metrics: CLI overrides config
+let metrics = [];
+if (argv.metrics != null && argv.metrics !== '') {
+  metrics = argv.metrics.split(',').map((m) => m.trim()).filter((m) => validMetrics.includes(m));
+} else if (commandsConfig.metrics != null) {
+  const fromConfig = Array.isArray(commandsConfig.metrics)
+    ? commandsConfig.metrics
+    : String(commandsConfig.metrics).split(',').map((m) => m.trim());
+  metrics = fromConfig.filter((m) => validMetrics.includes(m));
+}
+
+// JSON results path: CLI overrides config
+const jsonResultsPath =
+  argv.jsonResults != null
+    ? argv.jsonResults
+    : (commandsConfig.json_results ?? commandsConfig.json_results_path ?? null);
+
+// HTML results path: CLI overrides config (optional)
+const htmlResultsPath =
+  argv.htmlResults != null
+    ? argv.htmlResults
+    : (commandsConfig.html_results ?? commandsConfig.html_results_path ?? null);
+
 // Set the log folder for the main orchestrator logs if specified
 if (logFolder) {
   log.setLogFolder(logFolder);
 }
 
 // Create and run the orchestrator
-const orchestrator = new Orchestrator(commandsConfig, startPhase, logFolder, phases, sequential, force);
+const orchestrator = new Orchestrator(
+  commandsConfig,
+  startPhase,
+  logFolder,
+  phases,
+  sequential,
+  force,
+  metrics,
+  jsonResultsPath,
+  htmlResultsPath,
+);
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
