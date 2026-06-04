@@ -111,6 +111,9 @@ const htmlResultsPath =
     ? argv.htmlResults
     : (commandsConfig.html_results ?? commandsConfig.html_results_path ?? null);
 
+// A7: post-run hook — shell command run after json_results written
+const postRun = commandsConfig.post_run ?? null;
+
 // Set the log folder for the main orchestrator logs if specified
 if (logFolder) {
   log.setLogFolder(logFolder);
@@ -128,6 +131,8 @@ const orchestrator = new Orchestrator(
   jsonResultsPath,
   htmlResultsPath,
 );
+// A7: wire post-run hook from config
+orchestrator.postRun = postRun;
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
@@ -137,6 +142,8 @@ const handleSignal = async (signal) => {
   } catch (error) {
     log.error(`Cleanup failed: ${error.message}`);
   }
+  // A4: clear run-state so dashboards know the run ended
+  orchestrator._clearRunState();
   process.exit(1);
 };
 

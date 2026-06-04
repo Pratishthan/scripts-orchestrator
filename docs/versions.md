@@ -62,4 +62,34 @@ Works!
 * Added `--force` flag to bypass git cache check and force execution
 * New command line argument `--force` to execute regardless of git state
 * Useful for re-running commands without code changes or testing configuration
-* Log message now indicates how to force execution when skipping 
+* Log message now indicates how to force execution when skipping
+
+### 2.11.0
+* Added `json_results` config option to write command results as JSON
+* Added `html_results` config option to write an HTML report
+* Added `metrics` config option (`time`, `memory`) for per-command timing and memory tracking
+
+### 2.12.0
+* Added support for `retry_command` to run a different command on retry
+* Added `process_tracking` for better background process lifecycle management
+* Phase results (`phases[]`) included in JSON output when using phased config
+
+### 2.13.0
+* Added `--metrics` CLI flag (overrides config `metrics`)
+* Added `--json-results` and `--html-results` CLI flags
+* Background process cleanup improvements
+
+### 2.14.0
+* **Incremental JSON results (A1)**: `json_results` is now written atomically after every command
+  start and completion. `"success": null` at the top level is the in-progress sentinel; replaced
+  with `true`/`false` when the run finishes. In-flight commands include `startedAt` timestamp.
+* **NDJSON event stream (A2)**: A `<json_results_basename>-events.ndjson` file is written
+  alongside `json_results`, with one line per `command_start`, `command_end`, and `run_end` event.
+  Enables real-time dashboard integration without parsing human log lines.
+* **Run-state file (A4)**: When `--logFolder` is set, the library writes
+  `{logFolder}/.scripts-orchestrator-run.json` at run start (with `startedAt`, `pid`,
+  `activeCommand`, `phase`) and deletes it on run end. Live dashboards watch this file as the
+  authoritative in-progress signal.
+* **Post-run hook (A7)**: New `post_run` config option — a shell command run synchronously after
+  `json_results` is written and the run-state file is cleared. Receives
+  `SCRIPTS_ORCHESTRATOR_SUCCESS` and `SCRIPTS_ORCHESTRATOR_EXIT_CODE` env vars.

@@ -36,6 +36,10 @@ npm install --save-dev scripts-orchestrator
 - **Optional Phases**: Mark phases as optional and run them selectively
 - **Git-Based Caching**: Automatically skips execution when git state is unchanged
 - **Comprehensive Logging**: Detailed logging of command execution and results
+- **Incremental JSON results**: Live-updating `json_results` file as commands complete (v2.14+)
+- **NDJSON event stream**: Machine-readable per-command events for dashboards (v2.14+)
+- **Post-run hook**: Run a shell command after results are written via `post_run` config (v2.14+)
+- **Run-state file**: Library-owned in-progress indicator for live dashboard integration (v2.14+)
 
 ## Configuration
 
@@ -409,6 +413,84 @@ export default {
 **Note**: Command line arguments take precedence over configuration file settings.
 
 All logs (command logs, main orchestrator logs, and git cache) will be stored in the specified folder.
+
+## Live Dashboard Integration (v2.14+)
+
+### Incremental JSON results
+
+By default `json_results` is written only at the end of a run. From v2.14 onward the file is
+updated atomically (write-to-temp + rename) after **each command starts or completes**, so
+watchers always see a consistent snapshot:
+
+```json
+{
+  "success": null,
+  "timestamp": "2026-06-04T07:13:21.000Z",
+  "commands": [
+    { "command": "lint-ci", "phase": "lint", "success": true, "durationMs": 4200 },
+    { "command": "playwright_ci", "phase": "tests", "success": null, "startedAt": "2026-06-04T07:13:25.000Z" }
+  ]
+}
+```
+
+`"success": null` at the top level is the in-progress sentinel. It is replaced with `true` or
+`false` when `writeJsonResults` writes the final result.
+
+### NDJSON event stream
+
+Alongside `json_results`, the library writes one NDJSON line per event to
+`<json_results_basename>-events.ndjson`:
+
+```jsonl
+{"type":"command_start","timestamp":"...","command":"lint-ci","phase":"lint","scope":"workspace"}
+{"type":"command_end","timestamp":"...","command":"lint-ci","phase":"lint","success":true,"durationMs":4200}
+{"type":"run_end","timestamp":"...","success":true,"durationMs":12800}
+```
+
+Dashboard tools can `tail -f` this file or watch it with `fs.watch` to get real-time updates
+without parsing human-readable log lines.
+
+### Run-state file (A4)
+
+When `--logFolder` is specified, the library writes `{logFolder}/.scripts-orchestrator-run.json`
+at run start and removes it on run end:
+
+```json
+{
+  "startedAt": "2026-06-04T07:13:17.000Z",
+  "pid": 12345,
+  "phase": "tests",
+  "activeCommand": "playwright_ci"
+}
+```
+
+This file is the authoritative in-progress signal for live dashboards. Its absence means the run
+has finished (or never started).
+
+### Post-run hook (A7)
+
+Add `post_run` to your config to run a shell command **after** `json_results` is written and the
+run-state file is cleared, but **before** `process.exit()`:
+
+```javascript
+export default {
+  json_results: './logs/scripts-orchestrator-results.json',
+  post_run: 'node scripts/generate-report.js',  // called after every run
+  phases: [ /* ... */ ]
+};
+```
+
+The hook receives two environment variables:
+- `SCRIPTS_ORCHESTRATOR_SUCCESS=1` (or `0`) — whether the run succeeded
+- `SCRIPTS_ORCHESTRATOR_EXIT_CODE=0` (or `1`) — same, as a numeric exit code
+
+The hook runs synchronously and its exit code is logged but does not change the orchestrator's
+own exit code.
+
+**Typical use case:** trigger a monorepo rollup report after each workspace finishes:
+```javascript
+post_run: 'node ../../scripts/merge-orchestrator-report.js'
+```
 
 ## Git-Based Caching
 
