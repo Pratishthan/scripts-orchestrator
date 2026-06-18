@@ -51,9 +51,86 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'Write HTML report to this path; use "-" for stdout only',
   })
+  .option('render', {
+    type: 'string',
+    description: 'Render an existing results JSON file to HTML (no run). Use with --html-results.',
+  })
+  .option('recommend', {
+    type: 'string',
+    description:
+      'Analyse an existing results JSON and print a memory-aware phase recommendation (R12, no run).',
+  })
+  .option('fanout', {
+    type: 'number',
+    description: 'Workspace fan-out (parallel gates sharing the host) used to size the --recommend budget. Default 1.',
+  })
+  .option('mem-safety', {
+    type: 'number',
+    description: 'Fraction of total RAM the --recommend budget may use (default 0.8).',
+  })
+  .option('budget-mb', {
+    type: 'number',
+    description: 'Override the --recommend memory budget with a fixed value in MB.',
+  })
   .help()
   .alias('h', 'help')
   .parse();
+
+// --render mode: turn an existing results JSON into HTML and exit (no orchestration run).
+// Keeps all HTML rendering in the library so consumers never reimplement it.
+if (argv.render != null) {
+  const { renderReportHtml } = await import('./lib/index.js');
+  const srcPath = path.resolve(process.cwd(), argv.render);
+  if (!fs.existsSync(srcPath)) {
+    log.error(`Error: --render source not found at ${srcPath}`);
+    process.exit(1);
+  }
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(srcPath, 'utf8'));
+  } catch (err) {
+    log.error(`Error: failed to parse --render JSON: ${err.message}`);
+    process.exit(1);
+  }
+  const html = renderReportHtml(payload);
+  const out = argv.htmlResults ?? null;
+  if (out == null || out === '-') {
+    console.log(html);
+  } else {
+    const outPath = path.resolve(process.cwd(), out);
+    const tmpPath = outPath + '.tmp';
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(tmpPath, html, 'utf8');
+    fs.renameSync(tmpPath, outPath);
+    log.info(`📄 Rendered ${path.relative(process.cwd(), srcPath)} → ${path.relative(process.cwd(), outPath)}`);
+  }
+  process.exit(0);
+}
+
+// --recommend mode: analyse an existing results JSON and print a memory-aware phase
+// recommendation (R12). Advisory only — no orchestration run, no files written.
+if (argv.recommend != null) {
+  const { recommendPhases, formatRecommendationReport } = await import('./lib/index.js');
+  const srcPath = path.resolve(process.cwd(), argv.recommend);
+  if (!fs.existsSync(srcPath)) {
+    log.error(`Error: --recommend source not found at ${srcPath}`);
+    process.exit(1);
+  }
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(srcPath, 'utf8'));
+  } catch (err) {
+    log.error(`Error: failed to parse --recommend JSON: ${err.message}`);
+    process.exit(1);
+  }
+  const rec = recommendPhases(payload, {
+    fanout: argv.fanout,
+    memSafety: argv.memSafety,
+    budgetMb: argv.budgetMb,
+  });
+  console.log(formatRecommendationReport(rec, { sourcePath: path.relative(process.cwd(), srcPath) }));
+  process.exit(0);
+}
 
 // Extract arguments
 const args = argv._;
@@ -114,6 +191,13 @@ const htmlResultsPath =
 // A7: post-run hook — shell command run after json_results written
 const postRun = commandsConfig.post_run ?? null;
 
+// Periodic hook — shell command run on an interval WHILE the run is in flight (e.g. to roll up
+// results into an aggregate report). Library owns only the cadence; the command is project-specific.
+const periodicHook = commandsConfig.periodic_hook ?? null;
+const periodicIntervalMs = Number(commandsConfig.periodic_interval_ms) > 0
+  ? Number(commandsConfig.periodic_interval_ms)
+  : 45000;
+
 // Set the log folder for the main orchestrator logs if specified
 if (logFolder) {
   log.setLogFolder(logFolder);
@@ -133,10 +217,14 @@ const orchestrator = new Orchestrator(
 );
 // A7: wire post-run hook from config
 orchestrator.postRun = postRun;
+// Wire periodic hook (cadence owned by the library)
+orchestrator.periodicHook = periodicHook;
+orchestrator.periodicIntervalMs = periodicIntervalMs;
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
   log.warn(`\nReceived ${signal} signal. Cleaning up...`);
+  orchestrator._stopPeriodicHook();
   try {
     await orchestrator.processManager.cleanup();
   } catch (error) {

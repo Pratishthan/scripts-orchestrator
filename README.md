@@ -40,6 +40,7 @@ npm install --save-dev scripts-orchestrator
 - **NDJSON event stream**: Machine-readable per-command events for dashboards (v2.14+)
 - **Post-run hook**: Run a shell command after results are written via `post_run` config (v2.14+)
 - **Run-state file**: Library-owned in-progress indicator for live dashboard integration (v2.14+)
+- **Phase recommendations**: Memory-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory metrics (advisory, v2.15+)
 
 ## Configuration
 
@@ -522,6 +523,50 @@ This is useful when you want to:
 - Debug issues without modifying the codebase
 - Override the cache in CI/CD pipelines
 
+## Phase Recommendations (advisory)
+
+When a run is executed with `metrics: ['time', 'memory']`, the results JSON records each command's
+`durationMs` and peak `memoryKb`. The `--recommend` mode reads that JSON and prints a **memory-aware
+phase recommendation**: it never runs anything and writes no files.
+
+```bash
+# Analyse an existing results JSON and print a suggested phase layout
+scripts-orchestrator --recommend ./logs/scripts-orchestrator-results.json
+
+# Size the budget for a machine running N gates in parallel (each gets 1/N of RAM and cores)
+scripts-orchestrator --recommend ./logs/scripts-orchestrator-results.json --fanout 3
+
+# Override the memory budget explicitly (MB) or change the RAM safety fraction
+scripts-orchestrator --recommend ./logs/results.json --budget-mb 8192
+scripts-orchestrator --recommend ./logs/results.json --mem-safety 0.7
+```
+
+It reports two things:
+
+1. **Observed timeline** — each phase's wall-clock (the longest step in it) and the concurrent peak
+   memory (Σ of member peaks), flagging any phase whose concurrent peak exceeds the host budget.
+2. **Recommended layout** — a [First-Fit-Decreasing](https://en.wikipedia.org/wiki/Bin_packing_problem)
+   bin-packing by duration that groups steps into sequential phases so each phase's concurrent peak
+   memory stays under `budget = totalmem × memSafety ÷ fanout` and its step count stays under
+   `coreShare = (cores − 2) ÷ fanout`. Long steps seed phases; short steps fill the gaps beneath them,
+   so the estimated makespan stays near the theoretical floor (the single longest step) without
+   oversubscribing RAM.
+
+The same logic is exported for programmatic use:
+
+```js
+import { recommendPhases, formatRecommendationReport } from 'scripts-orchestrator';
+
+const payload = JSON.parse(fs.readFileSync('./logs/results.json', 'utf8'));
+const rec = recommendPhases(payload, { fanout: 3 });
+console.log(formatRecommendationReport(rec));
+// rec.recommended.bins, rec.observed, rec.observedMakespanMs, rec.budgetBytes, …
+```
+
+This is advisory only — the budget is conservative (per-process peaks summed as if they coincide) and
+the packing does not model inter-phase data dependencies, so validate any suggested layout against a
+real run before adopting it.
+
 ## Exit Codes
 
 - `0`: All commands executed successfully
@@ -535,6 +580,7 @@ See [versions](./docs/versions.md)
 - Better UX to indicate what is happening
 - Tests to avoid regression
 - Run any shell command rather than assume the command is specified in package.json (? tentative)
+- Promote the advisory `--recommend` phase recommender into an opt-in automatic scheduler that packs each phase under a per-host memory budget at run time
 
 
 ## Disclaimer

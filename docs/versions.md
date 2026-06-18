@@ -93,3 +93,15 @@ Works!
 * **Post-run hook (A7)**: New `post_run` config option — a shell command run synchronously after
   `json_results` is written and the run-state file is cleared. Receives
   `SCRIPTS_ORCHESTRATOR_SUCCESS` and `SCRIPTS_ORCHESTRATOR_EXIT_CODE` env vars.
+
+### 2.15.0
+* **Phase recommendations (R12, advisory)**: New `--recommend <results.json>` CLI mode reads a run's
+  time/memory metrics JSON and prints a memory-aware phase layout. No run is performed and no files
+  are written.
+* Packs steps with First-Fit-Decreasing by duration so each phase's concurrent peak memory stays
+  under `budget = totalmem × memSafety ÷ fanout` and its step count under
+  `coreShare = (cores − 2) ÷ fanout`. On a roomy host the steps collapse into one phase; on a
+  constrained host (or higher fan-out) they stagger.
+* New CLI flags `--fanout`, `--mem-safety`, and `--budget-mb` size the budget.
+* New library exports: `recommendPhases`, `formatRecommendationReport`, `computeBudget`,
+  `usableSteps`, `observedTimeline`, `packPhases`.
