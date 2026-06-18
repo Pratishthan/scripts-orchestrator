@@ -80,28 +80,31 @@ Works!
 * Background process cleanup improvements
 
 ### 2.14.0
-* **Incremental JSON results (A1)**: `json_results` is now written atomically after every command
+* **Incremental JSON results**: `json_results` is now written atomically after every command
   start and completion. `"success": null` at the top level is the in-progress sentinel; replaced
   with `true`/`false` when the run finishes. In-flight commands include `startedAt` timestamp.
-* **NDJSON event stream (A2)**: A `<json_results_basename>-events.ndjson` file is written
+* **NDJSON event stream**: A `<json_results_basename>-events.ndjson` file is written
   alongside `json_results`, with one line per `command_start`, `command_end`, and `run_end` event.
   Enables real-time dashboard integration without parsing human log lines.
-* **Run-state file (A4)**: When `--logFolder` is set, the library writes
+* **Run-state file**: When `--logFolder` is set, the library writes
   `{logFolder}/.scripts-orchestrator-run.json` at run start (with `startedAt`, `pid`,
   `activeCommand`, `phase`) and deletes it on run end. Live dashboards watch this file as the
   authoritative in-progress signal.
-* **Post-run hook (A7)**: New `post_run` config option — a shell command run synchronously after
+* **Post-run hook**: New `post_run` config option — a shell command run synchronously after
   `json_results` is written and the run-state file is cleared. Receives
   `SCRIPTS_ORCHESTRATOR_SUCCESS` and `SCRIPTS_ORCHESTRATOR_EXIT_CODE` env vars.
 
 ### 2.15.0
-* **Phase recommendations (R12, advisory)**: New `--recommend <results.json>` CLI mode reads a run's
+* **Phase recommendations (advisory)**: New `--recommend <results.json>` CLI mode reads a run's
   time/memory metrics JSON and prints a memory-aware phase layout. No run is performed and no files
   are written.
 * Packs steps with First-Fit-Decreasing by duration so each phase's concurrent peak memory stays
   under `budget = totalmem × memSafety ÷ fanout` and its step count under
   `coreShare = (cores − 2) ÷ fanout`. On a roomy host the steps collapse into one phase; on a
   constrained host (or higher fan-out) they stagger.
-* New CLI flags `--fanout`, `--mem-safety`, and `--budget-mb` size the budget.
-* New library exports: `recommendPhases`, `formatRecommendationReport`, `computeBudget`,
-  `usableSteps`, `observedTimeline`, `packPhases`.
+* The report ends with a single yes/no **verdict**: whether re-grouping is worth it, or — when one
+  step dominates the makespan — that splitting that step is the only remaining lever.
+* New CLI flags `--fanout`, `--mem-safety`, and `--budget-mb` size the budget. `--recommend-out <file>`
+  writes the report to a plain-text log file (ANSI-stripped) instead of the console.
+* New library exports: `recommendPhases`, `decideVerdict`, `formatRecommendationReport`,
+  `computeBudget`, `usableSteps`, `observedTimeline`, `packPhases`.

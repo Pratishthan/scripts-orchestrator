@@ -58,7 +58,7 @@ const argv = yargs(hideBin(process.argv))
   .option('recommend', {
     type: 'string',
     description:
-      'Analyse an existing results JSON and print a memory-aware phase recommendation (R12, no run).',
+      'Analyse an existing results JSON and print a memory-aware phase recommendation (no run).',
   })
   .option('fanout', {
     type: 'number',
@@ -71,6 +71,10 @@ const argv = yargs(hideBin(process.argv))
   .option('budget-mb', {
     type: 'number',
     description: 'Override the --recommend memory budget with a fixed value in MB.',
+  })
+  .option('recommend-out', {
+    type: 'string',
+    description: 'Write the --recommend report to this file (plain text) instead of the console.',
   })
   .help()
   .alias('h', 'help')
@@ -108,7 +112,8 @@ if (argv.render != null) {
 }
 
 // --recommend mode: analyse an existing results JSON and print a memory-aware phase
-// recommendation (R12). Advisory only — no orchestration run, no files written.
+// recommendation. Advisory only — no orchestration run. Output goes to the console, or to a
+// plain-text log file when --recommend-out is given.
 if (argv.recommend != null) {
   const { recommendPhases, formatRecommendationReport } = await import('./lib/index.js');
   const srcPath = path.resolve(process.cwd(), argv.recommend);
@@ -128,7 +133,18 @@ if (argv.recommend != null) {
     memSafety: argv.memSafety,
     budgetMb: argv.budgetMb,
   });
-  console.log(formatRecommendationReport(rec, { sourcePath: path.relative(process.cwd(), srcPath) }));
+  const report = formatRecommendationReport(rec, { sourcePath: path.relative(process.cwd(), srcPath) });
+  if (argv.recommendOut != null && argv.recommendOut !== '-') {
+    // Strip ANSI colour codes so the log file stays plain text. The escape char is built at runtime
+    // so the regex carries no literal control character (keeps eslint's no-control-regex happy).
+    const ansi = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
+    const outPath = path.resolve(process.cwd(), argv.recommendOut);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, report.replace(ansi, '') + '\n', 'utf8');
+    log.info(`📄 Phase recommendation written to ${path.relative(process.cwd(), outPath)}`);
+  } else {
+    console.log(report);
+  }
   process.exit(0);
 }
 
@@ -188,7 +204,7 @@ const htmlResultsPath =
     ? argv.htmlResults
     : (commandsConfig.html_results ?? commandsConfig.html_results_path ?? null);
 
-// A7: post-run hook — shell command run after json_results written
+// post-run hook — shell command run after json_results written
 const postRun = commandsConfig.post_run ?? null;
 
 // Periodic hook — shell command run on an interval WHILE the run is in flight (e.g. to roll up
@@ -215,7 +231,7 @@ const orchestrator = new Orchestrator(
   jsonResultsPath,
   htmlResultsPath,
 );
-// A7: wire post-run hook from config
+// wire post-run hook from config
 orchestrator.postRun = postRun;
 // Wire periodic hook (cadence owned by the library)
 orchestrator.periodicHook = periodicHook;
@@ -230,7 +246,7 @@ const handleSignal = async (signal) => {
   } catch (error) {
     log.error(`Cleanup failed: ${error.message}`);
   }
-  // A4: clear run-state so dashboards know the run ended
+  // clear run-state so dashboards know the run ended
   orchestrator._clearRunState();
   process.exit(1);
 };

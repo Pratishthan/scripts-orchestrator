@@ -451,7 +451,7 @@ Alongside `json_results`, the library writes one NDJSON line per event to
 Dashboard tools can `tail -f` this file or watch it with `fs.watch` to get real-time updates
 without parsing human-readable log lines.
 
-### Run-state file (A4)
+### Run-state file
 
 When `--logFolder` is specified, the library writes `{logFolder}/.scripts-orchestrator-run.json`
 at run start and removes it on run end:
@@ -468,7 +468,7 @@ at run start and removes it on run end:
 This file is the authoritative in-progress signal for live dashboards. Its absence means the run
 has finished (or never started).
 
-### Post-run hook (A7)
+### Post-run hook
 
 Add `post_run` to your config to run a shell command **after** `json_results` is written and the
 run-state file is cleared, but **before** `process.exit()`:
@@ -526,12 +526,15 @@ This is useful when you want to:
 ## Phase Recommendations (advisory)
 
 When a run is executed with `metrics: ['time', 'memory']`, the results JSON records each command's
-`durationMs` and peak `memoryKb`. The `--recommend` mode reads that JSON and prints a **memory-aware
-phase recommendation**: it never runs anything and writes no files.
+`durationMs` and peak `memoryKb`. The `--recommend` mode reads that JSON and reports a **memory-aware
+phase recommendation**: it never runs anything and changes no run state.
 
 ```bash
-# Analyse an existing results JSON and print a suggested phase layout
+# Analyse an existing results JSON and print a suggested phase layout to the console
 scripts-orchestrator --recommend ./logs/scripts-orchestrator-results.json
+
+# Write the report to a plain-text log file instead of the console (only a pointer line is printed)
+scripts-orchestrator --recommend ./logs/results.json --recommend-out ./logs/recommendation.log
 
 # Size the budget for a machine running N gates in parallel (each gets 1/N of RAM and cores)
 scripts-orchestrator --recommend ./logs/scripts-orchestrator-results.json --fanout 3
@@ -541,7 +544,7 @@ scripts-orchestrator --recommend ./logs/results.json --budget-mb 8192
 scripts-orchestrator --recommend ./logs/results.json --mem-safety 0.7
 ```
 
-It reports two things:
+It reports three things:
 
 1. **Observed timeline** — each phase's wall-clock (the longest step in it) and the concurrent peak
    memory (Σ of member peaks), flagging any phase whose concurrent peak exceeds the host budget.
@@ -551,6 +554,9 @@ It reports two things:
    `coreShare = (cores − 2) ÷ fanout`. Long steps seed phases; short steps fill the gaps beneath them,
    so the estimated makespan stays near the theoretical floor (the single longest step) without
    oversubscribing RAM.
+3. **Verdict** — a single yes/no line: whether re-grouping is worth it (it must trim ≥5% and ≥5s off
+   the makespan), or — when one step is ≥95% of the makespan — that the only remaining lever is to
+   split that step into smaller commands the orchestrator can schedule separately.
 
 The same logic is exported for programmatic use:
 
@@ -560,8 +566,11 @@ import { recommendPhases, formatRecommendationReport } from 'scripts-orchestrato
 const payload = JSON.parse(fs.readFileSync('./logs/results.json', 'utf8'));
 const rec = recommendPhases(payload, { fanout: 3 });
 console.log(formatRecommendationReport(rec));
-// rec.recommended.bins, rec.observed, rec.observedMakespanMs, rec.budgetBytes, …
+// rec.verdict.worthwhile, rec.verdict.reason, rec.recommended.bins, rec.observed, rec.budgetBytes, …
 ```
+
+A natural place to wire it is the `post_run` config hook, so each run prints a recommendation for its
+own results JSON when it finishes.
 
 This is advisory only — the budget is conservative (per-process peaks summed as if they coincide) and
 the packing does not model inter-phase data dependencies, so validate any suggested layout against a
