@@ -9,6 +9,10 @@ export default {
   // json_results: './scripts-orchestrator-results.json',
   // Optional: path for HTML report. CLI --html-results overrides.
   // html_results: './scripts-orchestrator-results.html',
+  // Optional: memory heat thresholds for the HTML report — fractions (0–1) of the run's peak memory.
+  // A command at/above `high` is coloured red, at/above `mid` amber, below `mid` green, on both the
+  // Gantt and the Memory table column. Defaults to { mid: 0.33, high: 0.66 } if omitted/invalid.
+  // memory_heat: { mid: 0.33, high: 0.66 },
   phases: [
     {
       name: 'build',

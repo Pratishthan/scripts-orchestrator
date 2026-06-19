@@ -108,3 +108,23 @@ Works!
   writes the report to a plain-text log file (ANSI-stripped) instead of the console.
 * New library exports: `recommendPhases`, `decideVerdict`, `formatRecommendationReport`,
   `computeBudget`, `usableSteps`, `observedTimeline`, `packPhases`.
+
+### 3.3.0
+* **Memory heat on the Gantt**: each Gantt bar now shows its command's peak memory directly — a
+  per-row memory value plus a green→amber→red ring on the bar, scaled relative to the heaviest
+  command in the run. Makes it possible to spot which parallel commands are too memory-hungry to
+  overlap without cross-referencing the Memory table column.
+* The bar's fill still encodes status (critical-path bottleneck / failure); memory is a separate
+  outline channel, so nothing is lost. The accent and memory column appear only when the run was
+  executed with `metrics: ['time', 'memory']` (no data → no accent).
+
+### 3.4.0
+* **Consistent memory colours across Gantt and tables**: the Memory column in the command tables now
+  uses the same green→amber→red heat scale as the Gantt's bar outline (both the value text and the
+  cell bar), scaled relative to the heaviest command in the run. The two views now read identically,
+  so a command that flags red on the Gantt also flags red in the table.
+* **Configurable heat thresholds**: new `memory_heat: { mid, high }` config option sets the fractions
+  (0–1) of the run's peak memory above which a command is coloured amber (`mid`) / red (`high`).
+  Defaults to `{ mid: 0.33, high: 0.66 }`; invalid values (out of range, or `mid >= high`) fall back
+  to the defaults. The thresholds are embedded in the results JSON, so re-rendering with `--render`
+  honours them, and the active thresholds are shown in the Gantt legend.
