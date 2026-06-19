@@ -13,6 +13,10 @@ export default {
   // A command at/above `high` is coloured red, at/above `mid` amber, below `mid` green, on both the
   // Gantt and the Memory table column. Defaults to { mid: 0.33, high: 0.66 } if omitted/invalid.
   // memory_heat: { mid: 0.33, high: 0.66 },
+  // Optional: duration heat thresholds for the HTML report — fractions (0–1) of the run's slowest
+  // command. A command at/above `high` is coloured red, at/above `mid` amber, below `mid` green, in
+  // the Duration table column. Defaults to { mid: 0.33, high: 0.66 } if omitted/invalid.
+  // duration_heat: { mid: 0.33, high: 0.66 },
   phases: [
     {
       name: 'build',

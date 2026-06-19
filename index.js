@@ -257,6 +257,10 @@ const postRun = commandsConfig.post_run ?? null;
 // a command is coloured amber (mid) / red (high). Config: `memory_heat: { mid: 0.33, high: 0.66 }`.
 const memoryHeat = commandsConfig.memory_heat ?? null;
 
+// Duration heat thresholds for the HTML report — fractions (0–1) of the run's slowest command above
+// which a command is coloured amber (mid) / red (high). Config: `duration_heat: { mid: 0.33, high: 0.66 }`.
+const durationHeat = commandsConfig.duration_heat ?? null;
+
 // Periodic hook — shell command run on an interval WHILE the run is in flight (e.g. to roll up
 // results into an aggregate report). Library owns only the cadence; the command is project-specific.
 const periodicHook = commandsConfig.periodic_hook ?? null;
@@ -313,6 +317,7 @@ const orchestrator = new Orchestrator(
 orchestrator.postRun = postRun;
 // wire memory heat thresholds from config (HTML report colouring)
 orchestrator.memoryHeat = memoryHeat;
+orchestrator.durationHeat = durationHeat;
 // Wire periodic hook (cadence owned by the library)
 orchestrator.periodicHook = periodicHook;
 orchestrator.periodicIntervalMs = periodicIntervalMs;

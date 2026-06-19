@@ -128,3 +128,13 @@ Works!
   Defaults to `{ mid: 0.33, high: 0.66 }`; invalid values (out of range, or `mid >= high`) fall back
   to the defaults. The thresholds are embedded in the results JSON, so re-rendering with `--render`
   honours them, and the active thresholds are shown in the Gantt legend.
+
+### 3.5.0
+* **Duration heat in the command tables**: the Duration column now uses the same green→amber→red heat
+  scale as the Memory column (both the value text and the cell bar), scaled relative to the slowest
+  command in the run, so the commands driving wall-clock time stand out at a glance.
+* **Configurable duration thresholds**: new `duration_heat: { mid, high }` config option sets the
+  fractions (0–1) of the run's slowest command above which a command is coloured amber (`mid`) / red
+  (`high`). Defaults to `{ mid: 0.33, high: 0.66 }`; invalid values fall back to the defaults. Like
+  `memory_heat`, the thresholds are embedded in the results JSON, so re-rendering with `--render`
+  honours them.
