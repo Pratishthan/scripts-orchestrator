@@ -41,7 +41,7 @@ npm install --save-dev scripts-orchestrator
 - **Post-run hook**: Run a shell command after results are written via `post_run` config (v2.14+)
 - **Run-state file**: Library-owned in-progress indicator for live dashboard integration (v2.14+)
 - **Phase recommendations**: Memory-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory metrics (advisory, v2.15+)
-- **npm workspace aggregation**: First-class `--aggregate` mode that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report (v3.1+)
+- **npm workspace aggregation**: First-class workspace roll-up that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report. Drive it declaratively with the `aggregate` config key (in-process; v3.2+) or via the standalone `--aggregate` CLI mode (v3.1+)
 
 ## Configuration
 
@@ -535,18 +535,13 @@ own exit code.
 post_run: 'npx scripts-orchestrator --aggregate ../../scripts-orchestrator-aggregate.config.js'
 ```
 
-## npm workspace aggregation (`--aggregate`, v3.1+)
+## npm workspace aggregation (v3.1+)
 
 In a monorepo, each npm workspace can run its own orchestrator gate (writing its own
-`json_results`), and a root run can run repo-wide "global" checks. `--aggregate` rolls all of
-these into one report — no per-repo merge script required.
-
-```bash
-# Discover the workspaces declared in the nearest package.json `workspaces`, read each one's
-# results JSON plus the root run's results, and write a single roll-up report.
-scripts-orchestrator --aggregate                                   # use the built-in defaults
-scripts-orchestrator --aggregate ./scripts-orchestrator-aggregate.config.js   # override paths/title
-```
+`json_results`), and a root run can run repo-wide "global" checks. The aggregator rolls all of
+these into one report — no per-repo merge script required. Drive it the easy way with the
+declarative [`aggregate` config key](#declarative-aggregate-config-key-recommended-v32) below, or
+invoke the [`--aggregate` CLI mode](#--aggregate-cli-mode) directly.
 
 It reads only artifacts the library itself writes — each scope's `json_results` and the
 **run-state file** (`.scripts-orchestrator-run.json`) — so it needs no log scraping. The
@@ -554,13 +549,36 @@ run-state file tells it whether the run is still in flight (live report with aut
 finished (static report). Each workspace section is classified as **OK / FAIL / RUNNING /
 PENDING / STALE / INTERRUPTED / N/A** from its own results JSON and the run window.
 
-It is safe to fire repeatedly, so the usual wiring drives it entirely from library hooks:
+### Declarative `aggregate` config key (recommended, v3.2+)
+
+Rather than wiring a `periodic_hook` / `post_run` that shells out to `--aggregate`, set the
+**`aggregate`** key in your orchestrator config and the library drives the roll-up **in-process** —
+no subprocess spawned every interval, no dependency on `npx`/PATH resolution:
 
 ```javascript
-// root run config
-periodic_hook: 'npx scripts-orchestrator --aggregate ./scripts-orchestrator-aggregate.config.js',
-// each workspace gate config (optional — for an immediate refresh when a workspace finishes)
-post_run: 'npx scripts-orchestrator --aggregate ../../scripts-orchestrator-aggregate.config.js',
+// root run config — roll up periodically while running + once, static, at the end
+aggregate: './scripts-orchestrator-aggregate.config.js',  // or `true` for the built-in defaults
+periodic_interval_ms: 45000,                              // cadence for the in-process roll-up
+
+// each workspace gate config — refresh the roll-up as that workspace finishes
+aggregate: '../../scripts-orchestrator-aggregate.config.js',
+```
+
+The value may be `true` (use defaults), a path to a config module (its `default` export is used as
+the options below), or an options object inline. The library auto-detects whether the current run is
+the **repo-root run** (it owns the periodic cadence and writes the final static report) or a
+**fanned-out workspace run** (it refreshes the roll-up once, as that workspace finishes, leaving the
+report in-progress because the root run is still live). On interrupt, the orchestrator writes one
+final static roll-up itself.
+
+### `--aggregate` CLI mode
+
+The same roll-up is available as a standalone CLI mode (used internally by the declarative key, and
+handy for manual/one-off rendering or legacy hook wiring). It is safe to fire repeatedly:
+
+```bash
+scripts-orchestrator --aggregate                                   # use the built-in defaults
+scripts-orchestrator --aggregate ./scripts-orchestrator-aggregate.config.js   # override paths/title
 ```
 
 The optional config module's `default` export may override any of these (all paths are

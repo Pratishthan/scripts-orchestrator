@@ -260,6 +260,34 @@ const periodicIntervalMs = Number(commandsConfig.periodic_interval_ms) > 0
   ? Number(commandsConfig.periodic_interval_ms)
   : 45000;
 
+// Declarative npm-workspace roll-up. `aggregate: true` uses library defaults; a string loads that
+// config module's default export as writeAggregateReport options; an object is used verbatim. When
+// set, the library drives the workspace aggregate IN-PROCESS — the repo-root run rolls up on the
+// periodic cadence + once at the end (static), and a fanned-out workspace run rolls up once as it
+// finishes. This is the declarative replacement for wiring periodic_hook / post_run to shell out
+// to `scripts-orchestrator --aggregate`.
+let aggregateOptions = null;
+const aggregateCfg = commandsConfig.aggregate;
+if (aggregateCfg != null && aggregateCfg !== false) {
+  if (aggregateCfg === true) {
+    aggregateOptions = {};
+  } else if (typeof aggregateCfg === 'string') {
+    const aggCfgPath = path.resolve(process.cwd(), aggregateCfg);
+    if (!fs.existsSync(aggCfgPath)) {
+      log.error(`Error: aggregate config not found at ${aggCfgPath}`);
+      process.exit(1);
+    }
+    try {
+      aggregateOptions = (await import(new URL(`file://${aggCfgPath}`).href)).default ?? {};
+    } catch (err) {
+      log.error(`Error: failed to load aggregate config: ${err.message}`);
+      process.exit(1);
+    }
+  } else if (typeof aggregateCfg === 'object') {
+    aggregateOptions = aggregateCfg;
+  }
+}
+
 // Set the log folder for the main orchestrator logs if specified
 if (logFolder) {
   log.setLogFolder(logFolder);
@@ -282,6 +310,8 @@ orchestrator.postRun = postRun;
 // Wire periodic hook (cadence owned by the library)
 orchestrator.periodicHook = periodicHook;
 orchestrator.periodicIntervalMs = periodicIntervalMs;
+// Wire declarative in-process workspace roll-up (takes the in-process path when set)
+orchestrator.aggregateOptions = aggregateOptions;
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
@@ -294,6 +324,11 @@ const handleSignal = async (signal) => {
   }
   // clear run-state so dashboards know the run ended
   orchestrator._clearRunState();
+  // Write one final static workspace roll-up so an interrupted run leaves a non-refreshing report
+  // (only when the declarative in-process aggregate is configured; a no-op otherwise).
+  if (orchestrator.aggregateOptions) {
+    orchestrator._firePeriodicHookFinal();
+  }
   process.exit(1);
 };
 
