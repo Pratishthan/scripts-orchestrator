@@ -48,12 +48,14 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
 
 ```javascript
 {
-  command: 'command_name',           // The npm script to run
+  command: 'command_name',           // The command to run (see "Command prefix" below)
   description: 'Description',        // Optional description
   status: 'enabled',                 // 'enabled' or 'disabled'
   attempts: 1,                       // Number of retry attempts
   dependencies: [],                 // Array of dependent commands
   background: false,                // Whether to run in background
+  shell: false,                     // true => run `command` verbatim as a shell command (no prefix)
+  prefix: 'npm run',                // Optional per-command prefix override ('' to disable)
   env: {                            // Optional environment variables
     PORT: 3000,
     NODE_ENV: 'production'
@@ -69,6 +71,44 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
   }
 }
 ```
+
+### Command prefix (`npm run` is optional)
+
+By default every `command` is run as an npm script — the orchestrator prepends `npm run`,
+so `command: 'build'` executes `npm run build`. This prefix is configurable:
+
+- **Global default** — set `command_prefix` at the top level of the config. Use it to point at a
+  different runner (`'pnpm run'`, `'yarn'`) or to disable prefixing entirely so commands run as
+  regular shell commands:
+
+  ```javascript
+  export default {
+    command_prefix: '',              // '' / false / null => run commands verbatim (plain shell)
+    phases: [
+      { name: 'checks', parallel: [
+        { command: 'eslint . --max-warnings 0' },   // runs as-is, supports args/pipes/&&
+        { command: './scripts/verify.sh' },
+      ]},
+    ],
+  };
+  ```
+
+- **Per command** — `shell: true` forces a single command to run verbatim as a shell command
+  (ignoring any global prefix), and `prefix: '...'` overrides the prefix for just that command:
+
+  ```javascript
+  {
+    phases: [{ name: 'mixed', parallel: [
+      { command: 'build' },                          // -> npm run build (global default)
+      { command: 'docker compose up -d', shell: true }, // raw shell command
+      { command: 'release', prefix: 'yarn' },        // -> yarn release
+    ]}],
+  }
+  ```
+
+Precedence per command: `shell: true` (raw) → per-command `prefix` → global `command_prefix`
+→ the built-in `npm run` default. Existing configs are unaffected — omitting all of these keeps
+the original `npm run` behaviour.
 
 ### Phase Configuration
 

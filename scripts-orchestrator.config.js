@@ -1,4 +1,8 @@
 export default {
+  // Optional: prefix prepended to every command. Defaults to 'npm run'.
+  // Set to '' (or false/null) to run commands verbatim as regular shell commands,
+  // or to another runner like 'pnpm run'. Per-command `shell: true` / `prefix` override this.
+  // command_prefix: 'npm run',
   // Optional: metrics to report (time, memory). CLI --metrics overrides.
   // metrics: ['time'],
   // Optional: path for JSON results, or '-' for stdout. CLI --json-results overrides.
