@@ -60,6 +60,11 @@ const argv = yargs(hideBin(process.argv))
     description:
       'Analyse an existing results JSON and print a memory-aware phase recommendation (no run).',
   })
+  .option('aggregate', {
+    type: 'string',
+    description:
+      'Aggregate every npm workspace\'s results JSON into one roll-up report (no run). Pass an optional config path to override the default paths/title.',
+  })
   .option('fanout', {
     type: 'number',
     description: 'Workspace fan-out (parallel gates sharing the host) used to size the --recommend budget. Default 1.',
@@ -144,6 +149,47 @@ if (argv.recommend != null) {
     log.info(`📄 Phase recommendation written to ${path.relative(process.cwd(), outPath)}`);
   } else {
     console.log(report);
+  }
+  process.exit(0);
+}
+
+// --aggregate mode: roll up every npm workspace's results JSON (plus the root run's global
+// checks) into a single report. Advisory of nothing — it just renders state already on disk, so
+// it is safe to fire repeatedly (e.g. from the periodic_hook while the run is in flight, or once
+// at the end). No orchestration run happens here.
+if (argv.aggregate != null) {
+  const { writeAggregateReport } = await import('./lib/index.js');
+  let options = {};
+  const cfgArg = argv.aggregate;
+  if (cfgArg && cfgArg !== '-') {
+    const cfgPath = path.resolve(process.cwd(), cfgArg);
+    if (!fs.existsSync(cfgPath)) {
+      log.error(`Error: --aggregate config not found at ${cfgPath}`);
+      process.exit(1);
+    }
+    try {
+      options = (await import(new URL(`file://${cfgPath}`).href)).default ?? {};
+    } catch (err) {
+      log.error(`Error: failed to load --aggregate config: ${err.message}`);
+      process.exit(1);
+    }
+  }
+  // The orchestrator fires this hook a final time AFTER clearing its run-state, tagging it with
+  // SCRIPTS_ORCHESTRATOR_PERIODIC=final. Honour that as an explicit "run is over" signal so the
+  // final report is static (no auto-refresh) even if a stray marker lingers.
+  if (process.env.SCRIPTS_ORCHESTRATOR_PERIODIC === 'final') {
+    options = { ...options, inProgress: false };
+  }
+  try {
+    const { jsonPath, htmlPath } = writeAggregateReport(options);
+    if (process.env.ORCHESTRATOR_MERGE_QUIET !== '1') {
+      log.info(
+        `📄 Aggregated workspace report → ${path.relative(process.cwd(), jsonPath)} (+ ${path.basename(htmlPath)})`,
+      );
+    }
+  } catch (err) {
+    log.error(`Error: failed to aggregate workspace report: ${err.message}`);
+    process.exit(1);
   }
   process.exit(0);
 }

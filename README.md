@@ -41,6 +41,7 @@ npm install --save-dev scripts-orchestrator
 - **Post-run hook**: Run a shell command after results are written via `post_run` config (v2.14+)
 - **Run-state file**: Library-owned in-progress indicator for live dashboard integration (v2.14+)
 - **Phase recommendations**: Memory-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory metrics (advisory, v2.15+)
+- **npm workspace aggregation**: First-class `--aggregate` mode that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report (v3.1+)
 
 ## Configuration
 
@@ -528,10 +529,57 @@ The hook receives two environment variables:
 The hook runs synchronously and its exit code is logged but does not change the orchestrator's
 own exit code.
 
-**Typical use case:** trigger a monorepo rollup report after each workspace finishes:
+**Typical use case:** roll up a monorepo report after each workspace finishes (see
+**npm workspace aggregation** below):
 ```javascript
-post_run: 'node ../../scripts/merge-orchestrator-report.js'
+post_run: 'npx scripts-orchestrator --aggregate ../../scripts-orchestrator-aggregate.config.js'
 ```
+
+## npm workspace aggregation (`--aggregate`, v3.1+)
+
+In a monorepo, each npm workspace can run its own orchestrator gate (writing its own
+`json_results`), and a root run can run repo-wide "global" checks. `--aggregate` rolls all of
+these into one report — no per-repo merge script required.
+
+```bash
+# Discover the workspaces declared in the nearest package.json `workspaces`, read each one's
+# results JSON plus the root run's results, and write a single roll-up report.
+scripts-orchestrator --aggregate                                   # use the built-in defaults
+scripts-orchestrator --aggregate ./scripts-orchestrator-aggregate.config.js   # override paths/title
+```
+
+It reads only artifacts the library itself writes — each scope's `json_results` and the
+**run-state file** (`.scripts-orchestrator-run.json`) — so it needs no log scraping. The
+run-state file tells it whether the run is still in flight (live report with auto-refresh) or
+finished (static report). Each workspace section is classified as **OK / FAIL / RUNNING /
+PENDING / STALE / INTERRUPTED / N/A** from its own results JSON and the run window.
+
+It is safe to fire repeatedly, so the usual wiring drives it entirely from library hooks:
+
+```javascript
+// root run config
+periodic_hook: 'npx scripts-orchestrator --aggregate ./scripts-orchestrator-aggregate.config.js',
+// each workspace gate config (optional — for an immediate refresh when a workspace finishes)
+post_run: 'npx scripts-orchestrator --aggregate ../../scripts-orchestrator-aggregate.config.js',
+```
+
+The optional config module's `default` export may override any of these (all paths are
+resolved against the auto-detected repo root unless absolute):
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `title` | `Workspaces Quality Report` | Report heading |
+| `outJson` / `outHtml` | `logs/monorepo-quality-report.{json,html}` | Where the roll-up is written |
+| `runStateFile` | `logs/.scripts-orchestrator-run.json` | Run-state file used to detect in-progress + run start |
+| `rootResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-results.json` | Root run's results (source of global-check rows) |
+| `globalResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-global-results.json` | Fallback source of global-check rows |
+| `workspaceResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-results.json` | Per-workspace results path (relative to each workspace) |
+| `globalPhase` / `workspacePhase` | `global quality checks` / `workspace quality gates` | Phase names used to split global rows from the fan-out row |
+| `refreshSecs` | `5` | Auto-refresh cadence injected while the run is in progress |
+| `exclude` | `[]` | Workspace directories (repo-root-relative) to omit |
+
+The library also exports the building blocks for programmatic use:
+`findRepoRoot`, `discoverWorkspaceDirs`, `aggregateWorkspacesReport`, `writeAggregateReport`.
 
 ## Git-Based Caching
 
