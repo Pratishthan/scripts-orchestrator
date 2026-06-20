@@ -35,6 +35,11 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     description: 'Run all commands sequentially instead of in parallel (for low CPU machines)',
   })
+  .option('max-concurrency', {
+    type: 'string',
+    description:
+      'Cap how many commands a phase runs at once: a positive integer, or \'auto\' (cpuCount - 1). Overrides config max_concurrency. Ignored under --sequential.',
+  })
   .option('force', {
     type: 'boolean',
     description: 'Force execution even if git state is unchanged',
@@ -323,6 +328,10 @@ orchestrator.periodicHook = periodicHook;
 orchestrator.periodicIntervalMs = periodicIntervalMs;
 // Wire declarative in-process workspace roll-up (takes the in-process path when set)
 orchestrator.aggregateOptions = aggregateOptions;
+// CLI --max-concurrency overrides the config's max_concurrency (resolved to a concrete cap).
+if (argv.maxConcurrency != null && argv.maxConcurrency !== '') {
+  orchestrator.maxConcurrency = orchestrator._resolveMaxConcurrency(argv.maxConcurrency);
+}
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {

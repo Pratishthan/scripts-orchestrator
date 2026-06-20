@@ -26,6 +26,7 @@ npm install --save-dev scripts-orchestrator
 ## Features
 
 - **Parallel Execution**: Runs multiple commands concurrently for faster execution
+- **Concurrency cap**: Bound how many commands a phase runs at once with `max_concurrency` / `--max-concurrency` (defaults to `auto` = CPU count − 1) so smaller machines aren't asked to host every command's toolchain simultaneously (v3.6+). A single phase can pin its own cap with a phase-level `max_concurrency` — e.g. `1` to serialise just that phase's commands while continuing past failures (v3.7+)
 - **Sequential Mode**: Option to run all commands sequentially for low CPU machines
 - **Dependency Management**: Handles command dependencies and ensures proper execution order
 - **Background Processes**: Supports running commands in the background with health checks
@@ -416,6 +417,73 @@ This is particularly useful for:
 - Development machines with low CPU/memory
 - Debugging individual command failures
 - Avoiding resource contention between commands
+
+### Limiting Concurrency (`max_concurrency`)
+
+Sequential mode is all-or-nothing. When a phase declares many parallel commands, running *every* one at once can overwhelm a smaller machine (each command may spin up its own Node/toolchain), while `--sequential` over-corrects by dropping to one at a time. `max_concurrency` is the middle ground: it caps how many of a phase's commands run **at once** without serialising everything.
+
+- **`'auto'` (the default)** resolves to `max(1, cpuCount - 1)`, leaving one core for the OS/editor.
+- **A positive integer** pins the cap to that exact number.
+- **`0`, negative, or unparseable** values fall back to `auto`.
+
+When the cap is greater than or equal to a phase's command count, behaviour is identical to unbounded parallel execution — so well-provisioned machines see no change. As each command finishes, the next queued one starts, keeping at most `max_concurrency` in flight. `--sequential` still wins (it is equivalent to a cap of 1).
+
+#### Configuration
+
+```js
+export default {
+  max_concurrency: 'auto', // or a number like 4
+  phases: [
+    {
+      name: 'quality checks',
+      parallel: [
+        { command: 'lint' },
+        { command: 'typecheck' },
+        { command: 'test' },
+        // ...more commands than the machine can run at once
+      ],
+    },
+  ],
+};
+```
+
+#### CLI override
+
+The `--max-concurrency` flag overrides the configured value for a single run:
+
+```bash
+# Run at most 3 commands per phase concurrently
+npm run scripts-orchestrator -- --max-concurrency 3
+
+# Force the auto cap (CPU count - 1) regardless of config
+npm run scripts-orchestrator -- --max-concurrency auto
+```
+
+At the start of a parallel run the orchestrator logs the resolved cap, e.g. `🧮 Max concurrency: 3 (of 8 CPUs)`.
+
+#### Per-phase override
+
+A single phase can pin its own cap by setting `max_concurrency` on the phase itself. This is the right tool when one phase's commands share a single resource — a dev server, a GPU, a port — and must run one at a time, while every other phase keeps the global cap and its parallelism. The phase value resolves the same way as the global one (`'auto'` and invalid values fall back to CPU count − 1), and overrides both the configured global cap and any `--max-concurrency` flag for that phase only.
+
+```js
+export default {
+  max_concurrency: 'auto', // global default for every phase
+  phases: [
+    { name: 'quality checks', parallel: [/* runs at the global cap */] },
+    {
+      name: 'browser suites',
+      max_concurrency: 1, // serialise just this phase (one shared dev server)
+      parallel: [
+        { command: 'e2e:group-a' },
+        { command: 'e2e:group-b' },
+        // ...each runs in turn; a failed group does NOT abort the others
+      ],
+    },
+  ],
+};
+```
+
+A serial phase (`max_concurrency: 1`) still runs through the parallel path, so it **continues past a failed command** rather than stopping on the first failure — unlike the global `--sequential` flag, which both serialises everything and stops the phase at its first failure. When a phase's cap differs from the global one the orchestrator logs the override, e.g. `↳ phase concurrency: 1 (phase "browser suites" overrides the 3 default)`.
 
 ## Error Handling
 

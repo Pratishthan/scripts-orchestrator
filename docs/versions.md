@@ -138,3 +138,22 @@ Works!
   (`high`). Defaults to `{ mid: 0.33, high: 0.66 }`; invalid values fall back to the defaults. Like
   `memory_heat`, the thresholds are embedded in the results JSON, so re-rendering with `--render`
   honours them.
+
+### 3.6.0
+* **Configurable per-phase concurrency cap**: new `max_concurrency` config option (and matching
+  `--max-concurrency` CLI flag) bounds how many of a phase's `parallel` commands run at once. Fills
+  the gap between unbounded parallel execution (every command at once) and `--sequential` (one at a
+  time), so a smaller machine isn't asked to host every command's toolchain simultaneously.
+* `max_concurrency: 'auto'` (the default) resolves to `max(1, cpuCount - 1)`; a positive integer pins
+  the cap; `0`/negative/unparseable values fall back to `auto`. When the cap is `>=` a phase's command
+  count the behaviour is identical to the previous unbounded parallel run, so well-provisioned
+  machines are unaffected. `--max-concurrency` overrides the config value; `--sequential` still wins
+  (equivalent to a cap of 1). The resolved cap is logged at the start of a parallel run, e.g.
+  `🧮 Max concurrency: 3 (of 8 CPUs)`.
+
+#### 3.6.1
+* **Fix global-checks section stuck on "RUNNING" in the aggregate report**: the roll-up now
+  classifies the global section from its own commands (`OK`/`FAIL`/`RUNNING`/`PENDING`) instead of
+  blanking its status whenever the overall run is still in progress. Previously a periodic in-progress
+  snapshot showed the global checks as "Running" even after they had all finished, just because a
+  workspace was still executing.
