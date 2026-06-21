@@ -157,3 +157,37 @@ Works!
   blanking its status whenever the overall run is still in progress. Previously a periodic in-progress
   snapshot showed the global checks as "Running" even after they had all finished, just because a
   workspace was still executing.
+
+### 3.7.0
+* **Per-phase concurrency override**: a phase may set its own `max_concurrency`, overriding the global
+  cap for that phase only. Unlike `--sequential`, a phase that caps itself still continues past a
+  failed command to run its siblings — useful for a phase of independent-but-heavy groups where one
+  flaky group should not abort the rest.
+
+### 3.8.0
+* **Per-command CPU metric**: add `'cpu'` to `metrics` (`metrics: ['time', 'memory', 'cpu']`) to record
+  each command's `cpuPercent` — average CPU utilisation over its wall-clock, where `100` = one core
+  fully busy and `>100` = multiple cores on average. Parsed from the same `/usr/bin/time` measurement
+  already used for memory (Linux/macOS only, no extra process spawned).
+* **CPU column in the HTML report**: colour-coded green→amber→red relative to the run's most
+  CPU-hungry command, with a legend explaining the heat scale, the metric columns, and CPU semantics.
+
+### 3.9.0
+* **CPU-aware phase recommendations**: the `--recommend` packer now treats the host core share as a real
+  CPU budget. Each step's CPU demand is its measured `cpuPercent ÷ 100` core-equivalents, and a phase's
+  steps must sum under `coreShare = (cores − 2) ÷ fanout` (alongside the existing memory budget). With
+  real CPU data, I/O-bound steps (well under one core) pack denser while genuinely parallel steps can't
+  be stacked into oversubscription; when the `cpu` metric is absent every step counts as one core, so
+  the constraint degrades exactly to the previous "≤ coreShare steps per phase" behaviour. The observed
+  timeline and recommended layout now show per-step CPU and each phase's concurrent CPU demand, flagging
+  any phase over the core share.
+
+### 3.10.0
+* **Workspace-aware phase recommendations**: `--recommend` now accepts a whole-monorepo roll-up report
+  (the kind written by `--aggregate` / the `aggregate` config key) in addition to a single-scope results
+  JSON. When given a roll-up, it pools every scope's (each npm workspace's, plus the global checks')
+  timed commands and produces a single cross-scope recommendation as if the whole monorepo ran on one
+  host. Each step keeps its originating scope in its phase and command label (e.g. `@app/web › build` /
+  `@app/web: build`), so the observed timeline stays per-scope while packing freely re-groups across
+  scopes. Empty/pending sections are skipped, partial/in-progress roll-ups are flagged, and the report
+  notes how many scopes were aggregated. The single-scope path is unchanged.

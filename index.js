@@ -46,7 +46,7 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('metrics', {
     type: 'string',
-    description: 'Comma-separated metrics to collect and report: time, memory',
+    description: 'Comma-separated metrics to collect and report: time, memory, cpu',
   })
   .option('json-results', {
     type: 'string',
@@ -63,7 +63,7 @@ const argv = yargs(hideBin(process.argv))
   .option('recommend', {
     type: 'string',
     description:
-      'Analyse an existing results JSON and print a memory-aware phase recommendation (no run).',
+      'Analyse a results JSON — either a single-scope results file or a whole-monorepo roll-up report — and print a resource-aware (memory + CPU) phase recommendation (no run).',
   })
   .option('aggregate', {
     type: 'string',
@@ -121,8 +121,8 @@ if (argv.render != null) {
   process.exit(0);
 }
 
-// --recommend mode: analyse an existing results JSON and print a memory-aware phase
-// recommendation. Advisory only — no orchestration run. Output goes to the console, or to a
+// --recommend mode: analyse an existing results JSON and print a resource-aware (memory + CPU)
+// phase recommendation. Advisory only — no orchestration run. Output goes to the console, or to a
 // plain-text log file when --recommend-out is given.
 if (argv.recommend != null) {
   const { recommendPhases, formatRecommendationReport } = await import('./lib/index.js');
@@ -208,7 +208,7 @@ const phases = argv.phases ? argv.phases.split(',').map(p => p.trim()) : null;
 const sequential = argv.sequential || false;
 const force = argv.force || false;
 
-const validMetrics = ['time', 'memory'];
+const validMetrics = ['time', 'memory', 'cpu'];
 
 // Validate config file exists
 if (!fs.existsSync(configPath)) {

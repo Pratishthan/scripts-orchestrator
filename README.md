@@ -41,7 +41,8 @@ npm install --save-dev scripts-orchestrator
 - **NDJSON event stream**: Machine-readable per-command events for dashboards (v2.14+)
 - **Post-run hook**: Run a shell command after results are written via `post_run` config (v2.14+)
 - **Run-state file**: Library-owned in-progress indicator for live dashboard integration (v2.14+)
-- **Phase recommendations**: Memory-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory metrics (advisory, v2.15+)
+- **Phase recommendations**: Resource-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory/CPU metrics, packing under both a memory budget and the host's CPU core share. Accepts either a single-scope results JSON or a whole-monorepo roll-up report, pooling every workspace's commands into one cross-scope recommendation (advisory, v2.15+)
+- **Per-command metrics**: Record `durationMs`, peak `memoryKb`, and average `cpuPercent` per command via `metrics: ['time', 'memory', 'cpu']` (CPU axis v3.8+)
 - **npm workspace aggregation**: First-class workspace roll-up that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report. Drive it declaratively with the `aggregate` config key (in-process; v3.2+) or via the standalone `--aggregate` CLI mode (v3.1+)
 
 ## Configuration
@@ -700,12 +701,28 @@ This is useful when you want to:
 ## Phase Recommendations (advisory)
 
 When a run is executed with `metrics: ['time', 'memory']`, the results JSON records each command's
-`durationMs` and peak `memoryKb`. The `--recommend` mode reads that JSON and reports a **memory-aware
-phase recommendation**: it never runs anything and changes no run state.
+`durationMs` and peak `memoryKb`. Add `'cpu'` (`metrics: ['time', 'memory', 'cpu']`) to also record
+`cpuPercent` — average CPU utilisation over the command's wall-clock, where `100` means one core fully
+busy for the whole run and `>100` means multiple cores on average (derived from the same `/usr/bin/time`
+measurement as memory, Linux/macOS only, no extra process spawned). The `--recommend` mode reads that
+JSON and reports a **resource-aware phase recommendation**: it packs phases under both a memory budget
+and the host's CPU core share. It never runs anything and changes no run state.
+
+It accepts either a single-scope results JSON or a whole-monorepo **roll-up report** (the kind written
+by [`--aggregate`](#npm-workspace-aggregation-v31) / the `aggregate` config key, default
+`logs/monorepo-quality-report.json`). Given a roll-up it pools every scope's (each npm workspace's, plus
+the global checks') timed commands and produces a single cross-scope recommendation, as if the whole
+monorepo ran on one host. Each step keeps its scope in its phase and command label
+(e.g. `@app/web › build` / `@app/web: build`) so the observed timeline stays per-scope while packing
+re-groups freely across scopes; empty/pending sections are skipped and partial/in-progress roll-ups are
+flagged.
 
 ```bash
 # Analyse an existing results JSON and print a suggested phase layout to the console
 scripts-orchestrator --recommend ./logs/scripts-orchestrator-results.json
+
+# Analyse a whole-monorepo roll-up report for one cross-scope recommendation
+scripts-orchestrator --recommend ./logs/monorepo-quality-report.json
 
 # Write the report to a plain-text log file instead of the console (only a pointer line is printed)
 scripts-orchestrator --recommend ./logs/results.json --recommend-out ./logs/recommendation.log
@@ -720,14 +737,18 @@ scripts-orchestrator --recommend ./logs/results.json --mem-safety 0.7
 
 It reports three things:
 
-1. **Observed timeline** — each phase's wall-clock (the longest step in it) and the concurrent peak
-   memory (Σ of member peaks), flagging any phase whose concurrent peak exceeds the host budget.
+1. **Observed timeline** — each phase's wall-clock (the longest step in it), the concurrent peak
+   memory (Σ of member peaks) and the concurrent CPU demand (Σ of member core-equivalents), flagging
+   any phase whose concurrent peak exceeds the host memory budget or core share.
 2. **Recommended layout** — a [First-Fit-Decreasing](https://en.wikipedia.org/wiki/Bin_packing_problem)
    bin-packing by duration that groups steps into sequential phases so each phase's concurrent peak
-   memory stays under `budget = totalmem × memSafety ÷ fanout` and its step count stays under
-   `coreShare = (cores − 2) ÷ fanout`. Long steps seed phases; short steps fill the gaps beneath them,
-   so the estimated makespan stays near the theoretical floor (the single longest step) without
-   oversubscribing RAM.
+   memory stays under `budget = totalmem × memSafety ÷ fanout` and its concurrent CPU demand stays under
+   `coreShare = (cores − 2) ÷ fanout`. Each step's CPU demand is its measured `cpuPercent ÷ 100`
+   core-equivalents; when the `cpu` metric isn't collected every step counts as one core, so the
+   core-share constraint degrades to a simple "≤ coreShare steps per phase" limit. With real CPU data,
+   I/O-bound steps (well under one core) pack denser while genuinely parallel steps can't be stacked into
+   oversubscription. Long steps seed phases; short steps fill the gaps beneath them, so the estimated
+   makespan stays near the theoretical floor (the single longest step) without oversubscribing RAM or CPU.
 3. **Verdict** — a single yes/no line: whether re-grouping is worth it (it must trim ≥5% and ≥5s off
    the makespan), or — when one step is ≥95% of the makespan — that the only remaining lever is to
    split that step into smaller commands the orchestrator can schedule separately.
@@ -763,7 +784,7 @@ See [versions](./docs/versions.md)
 - Better UX to indicate what is happening
 - Tests to avoid regression
 - Run any shell command rather than assume the command is specified in package.json (? tentative)
-- Promote the advisory `--recommend` phase recommender into an opt-in automatic scheduler that packs each phase under a per-host memory budget at run time
+- Promote the advisory `--recommend` phase recommender into an opt-in automatic scheduler that packs each phase under a per-host memory budget and CPU core share at run time
 
 
 ## Disclaimer
