@@ -86,6 +86,11 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'Write the --recommend report to this file (plain text) instead of the console.',
   })
+  .option('memory-guard', {
+    type: 'boolean',
+    description:
+      'Host-memory safety guard (admission control + abort watchdog). On by default; use --no-memory-guard to disable for this run (overrides config memory_guard).',
+  })
   .help()
   .alias('h', 'help')
   .parse();
@@ -332,11 +337,19 @@ orchestrator.aggregateOptions = aggregateOptions;
 if (argv.maxConcurrency != null && argv.maxConcurrency !== '') {
   orchestrator.maxConcurrency = orchestrator._resolveMaxConcurrency(argv.maxConcurrency);
 }
+// CLI --no-memory-guard is an operator escape hatch that disables the host-memory guard for this run
+// (yargs sets argv.memoryGuard === false only when --no-memory-guard is passed; left undefined
+// otherwise, so the config-driven default stands).
+if (argv.memoryGuard === false) {
+  orchestrator.memoryGovernor.opts.enabled = false;
+  log.warn('⚠️  Host-memory guard disabled for this run (--no-memory-guard).');
+}
 
 // Enhanced signal handlers
 const handleSignal = async (signal) => {
   log.warn(`\nReceived ${signal} signal. Cleaning up...`);
   orchestrator._stopPeriodicHook();
+  orchestrator.memoryGovernor.stopWatchdog();
   try {
     await orchestrator.processManager.cleanup();
   } catch (error) {
