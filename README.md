@@ -486,6 +486,51 @@ export default {
 
 A serial phase (`max_concurrency: 1`) still runs through the parallel path, so it **continues past a failed command** rather than stopping on the first failure — unlike the global `--sequential` flag, which both serialises everything and stops the phase at its first failure. When a phase's cap differs from the global one the orchestrator logs the override, e.g. `↳ phase concurrency: 1 (phase "browser suites" overrides the 3 default)`.
 
+### Host-memory safety guard (`memory_guard`)
+
+`max_concurrency` bounds command *count*, but not memory *weight*: a phase mixing heavy commands (or a workspace fan-out stacking several such phases on one box) can drive peak RAM into a SUM rather than a MAX and push the host into swap until it thrashes. The memory guard adds the two protections a count cap can't:
+
+- **Admission control** — before dispatching the *next* command in a phase, if available host RAM is below the admission floor it holds that command until a running one frees memory, regardless of free concurrency slots. It never holds the first/only in-flight command, so the run always makes progress.
+- **Abort watchdog** — if available RAM stays below the critical floor continuously for the sustained window, it kills the child process tree, persists partial results, and exits non-zero (code `137`) rather than letting the machine swap to death.
+
+Both read *available* RAM (free + reclaimable cache), not `os.freemem()`. The guard is **on by default** with these thresholds:
+
+```js
+export default {
+  // `true`/omitted = on with defaults; `false` = off; or an object to tune:
+  memory_guard: {
+    minFreeRatio: 0.15,   // hold the next command below 15% available RAM
+    abortFreeRatio: 0.05, // abort if available RAM stays below 5%...
+    sustainedMs: 15000,   // ...continuously for this long
+  },
+  phases: [/* ... */],
+};
+```
+
+At the start of a run the orchestrator logs the active thresholds and how to control the guard, e.g.:
+
+```
+🧠 memory-guard: hold next command below 15% available RAM, abort below 5% for 15s
+   ↳ Too strict? Disable it for this run with --no-memory-guard, turn it off in config
+     with `memory_guard: false`, or relax the thresholds via
+     `memory_guard: { minFreeRatio, abortFreeRatio, sustainedMs }` (lower the ratios / raise sustainedMs).
+```
+
+#### Controlling / bypassing the guard
+
+When the guard is too strict for your machine or workload, relax or disable it:
+
+- **One run** — pass `--no-memory-guard` to disable the guard for that invocation (overrides config):
+
+  ```bash
+  npm run scripts-orchestrator -- --no-memory-guard
+  ```
+
+- **Permanently** — set `memory_guard: false` in the config.
+- **Tune instead of disabling** — lower `abortFreeRatio` / `minFreeRatio` and/or raise `sustainedMs` so brief dips no longer trip the guard. Out-of-range or unparseable fields fall back to their default rather than disabling the guard, so a typo can never silently remove the protection.
+
+If the watchdog does fire, the abort message repeats these options alongside the usual remediation (reduce the workspace fan-out, lower `max_concurrency`, or disable phase-merge).
+
 ## Error Handling
 
 - The script tracks failed and skipped commands
@@ -775,6 +820,7 @@ real run before adopting it.
 
 - `0`: All commands executed successfully
 - `1`: One or more commands failed or were skipped
+- `137`: Aborted by the host-memory safety guard (available RAM stayed below the critical floor for the sustained window — see [`memory_guard`](#host-memory-safety-guard-memory_guard))
 
 
 ## History

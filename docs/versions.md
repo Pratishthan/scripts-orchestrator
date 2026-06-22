@@ -191,3 +191,12 @@ Works!
   `@app/web: build`), so the observed timeline stays per-scope while packing freely re-groups across
   scopes. Empty/pending sections are skipped, partial/in-progress roll-ups are flagged, and the report
   notes how many scopes were aggregated. The single-scope path is unchanged.
+
+### 3.11.3
+* **Discoverable memory-guard controls**: the host-memory safety guard now tells you how to control it
+  where you actually hit it. The startup banner gains a follow-up line, and the abort message gains a
+  second remediation line, both spelling out the three escape hatches — `--no-memory-guard` (one run),
+  `memory_guard: false` (off permanently), and tuning `memory_guard: { minFreeRatio, abortFreeRatio,
+  sustainedMs }` (lower the ratios / raise `sustainedMs` so brief dips no longer abort). No behaviour
+  change — only the guidance in the logs. Documented the guard and its controls in the README, and
+  added the distinct `137` abort exit code to the Exit Codes section.
