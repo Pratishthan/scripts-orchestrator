@@ -57,6 +57,9 @@ Create a configuration file (default: `scripts-orchestrator.config.js`) that def
   attempts: 1,                       // Number of retry attempts
   dependencies: [],                 // Array of dependent commands
   background: false,                // Whether to run in background
+  persist: false,                   // Background only: keep running past the phase that started it
+                                    // (default false => torn down at the end of its phase). Set true
+                                    // for a shared server later phases run against; reclaimed at run end.
   shell: false,                     // true => run `command` verbatim as a shell command (no prefix)
   prefix: 'npm run',                // Optional per-command prefix override ('' to disable)
   env: {                            // Optional environment variables
@@ -536,7 +539,13 @@ If the watchdog does fire, the abort message repeats these options alongside the
 - The script tracks failed and skipped commands
 - Provides detailed error messages and logs
 - Handles process cleanup on script termination
-- Manages background processes and ensures proper cleanup
+- Manages background processes and ensures proper cleanup:
+  - A background process (e.g. a `npm run dev` server) is torn down at the **end of the phase that
+    started it** — on success **and** on failure — so it never leaks into later phases. Mark it
+    `persist: true` to keep it alive across phases (reclaimed at run end instead).
+  - Teardown signals the child's **whole process group**, so the full `sh → npm → node` tree dies,
+    not just the wrapper — a dev server can no longer be orphaned holding its port.
+  - On termination (SIGINT/SIGTERM/SIGQUIT/SIGHUP) every tracked background process is cleaned up.
 
 ## Logging
 
