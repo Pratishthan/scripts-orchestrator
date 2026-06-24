@@ -200,3 +200,12 @@ Works!
   sustainedMs }` (lower the ratios / raise `sustainedMs` so brief dips no longer abort). No behaviour
   change — only the guidance in the logs. Documented the guard and its controls in the README, and
   added the distinct `137` abort exit code to the Exit Codes section.
+
+### 3.13.0
+* **Multi-file workspace roll-up**: the aggregate's `workspaceResults` option now accepts a list of
+  paths as well as a single string. When a workspace's gate is split across several orchestrator
+  processes that run concurrently — each writing its own results JSON so their phases don't serialise
+  behind one another — every present, in-window file is merged into the one workspace section
+  (commands concatenated; the section fails if any file failed, runs if any is still running, and is
+  OK only when every present file is OK). Stale-only files still surface their last-known (cached)
+  commands. Fully backward compatible — a single string behaves exactly as before.

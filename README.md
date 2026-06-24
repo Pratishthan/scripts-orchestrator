@@ -714,7 +714,7 @@ resolved against the auto-detected repo root unless absolute):
 | `runStateFile` | `logs/.scripts-orchestrator-run.json` | Run-state file used to detect in-progress + run start |
 | `rootResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-results.json` | Root run's results (source of global-check rows) |
 | `globalResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-global-results.json` | Fallback source of global-check rows |
-| `workspaceResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-results.json` | Per-workspace results path (relative to each workspace) |
+| `workspaceResults` | `logs/scripts-orchestrator-logs/scripts-orchestrator-results.json` | Per-workspace results path (relative to each workspace). Accepts a **list of paths** as well as a single string — when a workspace's gate is split across several concurrent orchestrator processes (each writing its own results file), every present file is merged into the one workspace section (commands concatenated; the section fails if any file failed). |
 | `globalPhase` / `workspacePhase` | `global quality checks` / `workspace quality gates` | Phase names used to split global rows from the fan-out row |
 | `refreshSecs` | `5` | Auto-refresh cadence injected while the run is in progress |
 | `exclude` | `[]` | Workspace directories (repo-root-relative) to omit |
