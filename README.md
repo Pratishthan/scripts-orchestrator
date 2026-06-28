@@ -670,7 +670,28 @@ It reads only artifacts the library itself writes — each scope's `json_results
 **run-state file** (`.scripts-orchestrator-run.json`) — so it needs no log scraping. The
 run-state file tells it whether the run is still in flight (live report with auto-refresh) or
 finished (static report). Each workspace section is classified as **OK / FAIL / RUNNING /
-PENDING / STALE / INTERRUPTED / N/A** from its own results JSON and the run window.
+PENDING / CACHED / STALE / INTERRUPTED / N/A** from its own results JSON and the run window.
+
+#### Cache replays and split (multi-lane) fan-outs (v3.13.1+)
+
+A workspace gate that the task runner serves from cache is **not re-executed**, so it does **not**
+rewrite its results JSON — the file's `timestamp` predates this run and would otherwise read as
+"stale". The aggregator recognises this and reports such a workspace as **CACHED** (its last-known
+commands surfaced), rather than hiding them as STALE, when the run's fan-out actually executed.
+
+This matters most when a workspace's gate is **split across several independent fan-out lanes** (for
+example a `workspaceResults` list of *lite + storybook + playwright* files, each written by its own
+concurrent orchestrator process):
+
+- **Per-lane freshness.** If some lanes run fresh while others are cache replays, the cached lanes'
+  commands are still merged into the section — they are no longer dropped just because a sibling lane
+  ran fresh. The section's pass/fail still derives from the freshly-executed lanes only.
+- **Per-workspace cache judgment.** Whether an all-cached workspace counts as a CACHED pass is
+  decided from **its own** results (`success === true`) plus the fact that **at least one** fan-out
+  lane ran clean — not from requiring *every* lane to pass. Under `nxBail=false` run-many a lane's
+  exit code reflects the worst workspace in the batch, so one workspace's failing lane no longer
+  buries another workspace's cache-replayed (passing) results as STALE. A workspace whose own
+  last-known result is a failure/interrupt (never cached by the task runner) still reads STALE.
 
 ### Declarative `aggregate` config key (recommended, v3.2+)
 
