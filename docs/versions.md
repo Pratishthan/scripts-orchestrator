@@ -209,3 +209,17 @@ Works!
   (commands concatenated; the section fails if any file failed, runs if any is still running, and is
   OK only when every present file is OK). Stale-only files still surface their last-known (cached)
   commands. Fully backward compatible — a single string behaves exactly as before.
+
+### 3.15.0
+* **Overall Critical Path**: the HTML report gains a top-level "Overall Critical Path" section that
+  places every command — across every phase and every workspace section — on one absolute wall-clock
+  timeline, instead of the per-section Gantt's per-phase view. The existing per-section "Actual
+  Critical Path" credits only each phase's longest command and assumes phases run back-to-back, so it
+  silently understates wall-clock whenever stages serialise or leave gaps between them. The new view
+  reports what actually drove the run: the true wall-clock (the orchestrator's measured run duration),
+  the **observed critical path** (the longest chain of commands that ran strictly one after another —
+  the part no extra parallelism could shorten), and **idle / dead-air** (wall-clock during which
+  nothing was running — the direct signal that stages weren't packed tightly). Cache-replayed commands
+  carried over from an earlier run window are excluded so they can't stretch the timeline. Rendered
+  only for multi-section or multi-phase runs (a single flat command list is already fully described by
+  its own Gantt).
