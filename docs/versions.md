@@ -1,3 +1,21 @@
+### 3.15.2
+* **Interrupted workspace mis-reported as FAILED**: when a workspace's own run is interrupted
+  (SIGINT/SIGTERM to the process tree), `finalizeInterrupted()` writes a TERMINAL `success: false`
+  (so the run reads as ended, not running) together with `interrupted: true`, leaving no command
+  marked failed. The aggregate roll-up read that top-level `success: false` literally and classified
+  the workspace as **FAIL**. `readMergedWorkspaceResults` now maps an interrupted payload to the
+  interrupted sentinel (`null` → **INTERRUPTED**) rather than a failure — UNLESS one of the
+  workspace's own commands genuinely failed, in which case the real gate failure dominates (the same
+  rule the top-level banner already applied). Interrupted sections also keep their partial command
+  list now (which checks passed, which were cut off).
+* **Roll-up temp-file race on a group interrupt**: the aggregate report used a shared
+  `<report>.json.tmp`. When the whole tree is signalled at once and several processes fire the
+  roll-up, one renames the temp away and the other's rename throws `ENOENT`, losing that write.
+  `atomicWrite` now uses a pid+seq-scoped temp name (rename onto the final path stays atomic) and
+  cleans up its temp on a failed rename.
+* **Lint**: replaced `while (true)` with `for (;;)` in `_runWithConcurrency` (`no-constant-condition`)
+  so the package's own `prepare`/`lint` gate passes on (re)install.
+
 ### 1.0.0
 Works!
 
@@ -223,3 +241,15 @@ Works!
   carried over from an earlier run window are excluded so they can't stretch the timeline. Rendered
   only for multi-section or multi-phase runs (a single flat command list is already fully described by
   its own Gantt).
+
+### 3.15.1
+* **Windows fixes**:
+  * **Concurrency pool race**: `_runWithConcurrency` now claims its work index (`next++`) before any
+    `await`. Previously several pool workers could each pass the `next < items.length` guard, yield
+    inside the memory governor's `waitForHeadroom`, and then over-increment `next` — leaving one
+    worker with an out-of-range index and `items[current] === undefined`. The claim-then-check order
+    makes index hand-out atomic with respect to the await.
+  * **`KEY=value` prefix invalid on cmd.exe**: when a command supplies an `env` map, the inline
+    `KEY=value ` display prefix is now built only off Windows. The values are still applied on every
+    platform via the spawn `env` option (`createIsolatedEnvironment`); on Windows the shell-style
+    prefix would otherwise be passed to `cmd.exe` as a bogus token and break the command.
