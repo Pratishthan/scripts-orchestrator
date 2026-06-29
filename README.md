@@ -546,6 +546,17 @@ If the watchdog does fire, the abort message repeats these options alongside the
   - Teardown signals the child's **whole process group**, so the full `sh → npm → node` tree dies,
     not just the wrapper — a dev server can no longer be orphaned holding its port.
   - On termination (SIGINT/SIGTERM/SIGQUIT/SIGHUP) every tracked background process is cleaned up.
+- **Interrupt finalization is owned by the library.** On termination (or an uncaught fault, or a
+  memory-guard abort) the orchestrator finalizes the run itself: it tears down the child tree,
+  writes a **terminal** results JSON (top-level `success: false`; any command still in flight stays
+  `success: null` so it renders as INTERRUPTED, never a false pass), removes the run-state marker,
+  and writes one final **static** workspace roll-up (`inProgress: false`). A killed run therefore
+  never lingers on "RUNNING" — consumers' run wrappers need no interrupt-fallback roll-up of their
+  own.
+  - A terminated run is flagged `interrupted: true` in the results JSON and shows a distinct amber
+    **"Interrupted"** banner rather than the red **"Failed"** one — it is non-success (`success`
+    stays `false`, so CI/exit-code gating is unchanged) but is not a gate failure. A genuine failure
+    occurring in the same run still wins: the banner reads "Failed", not "Interrupted".
 
 ## Logging
 
@@ -554,6 +565,13 @@ If the watchdog does fire, the abort message repeats these options alongside the
 - Git commit hash is cached in `scripts-orchestrator-logs/.git-hash-cache` for skip detection
 - Provides real-time status updates during execution
 - Summarizes results at the end of execution
+- **Tail hints (where is the output?).** Each command's stdout/stderr is captured to its own file
+  rather than streamed to the console, so when a command starts the orchestrator prints the path to
+  tail (`[INFO] Tail: …`). During a repo-root workspace fan-out the root's own log carries only the
+  task-runner summary, so the orchestrator additionally points tailers at whichever **workspace**
+  log changed most recently (`[INFO] Active log (Ns ago): …`). Workspace discovery reuses the same
+  `discoverWorkspaceDirs` the roll-up uses, so there is no separate copy of workspace-layout
+  knowledge to maintain.
 
 ### Custom Log Folder
 

@@ -345,23 +345,12 @@ if (argv.memoryGuard === false) {
   log.warn('⚠️  Host-memory guard disabled for this run (--no-memory-guard).');
 }
 
-// Enhanced signal handlers
+// Enhanced signal handlers. The library owns the whole interrupt lifecycle (cleanup, terminal
+// results, run-state removal, final static roll-up) via finalizeInterrupted — so a killed run never
+// lingers as RUNNING and the consumer's run wrapper needs no interrupt fallback of its own.
 const handleSignal = async (signal) => {
   log.warn(`\nReceived ${signal} signal. Cleaning up...`);
-  orchestrator._stopPeriodicHook();
-  orchestrator.memoryGovernor.stopWatchdog();
-  try {
-    await orchestrator.processManager.cleanup();
-  } catch (error) {
-    log.error(`Cleanup failed: ${error.message}`);
-  }
-  // clear run-state so dashboards know the run ended
-  orchestrator._clearRunState();
-  // Write one final static workspace roll-up so an interrupted run leaves a non-refreshing report
-  // (only when the declarative in-process aggregate is configured; a no-op otherwise).
-  if (orchestrator.aggregateOptions) {
-    orchestrator._firePeriodicHookFinal();
-  }
+  await orchestrator.finalizeInterrupted();
   process.exit(1);
 };
 
