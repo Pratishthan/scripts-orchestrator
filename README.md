@@ -44,6 +44,7 @@ npm install --save-dev scripts-orchestrator
 - **Phase recommendations**: Resource-aware `--recommend` mode that proposes an optimal phase layout from a run's time/memory/CPU metrics, packing under both a memory budget and the host's CPU core share. Accepts either a single-scope results JSON or a whole-monorepo roll-up report, pooling every workspace's commands into one cross-scope recommendation (advisory, v2.15+)
 - **Per-command metrics**: Record `durationMs`, peak `memoryKb`, and average `cpuPercent` per command via `metrics: ['time', 'memory', 'cpu']` (CPU axis v3.8+)
 - **npm workspace aggregation**: First-class workspace roll-up that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report. Drive it declaratively with the `aggregate` config key (in-process; v3.2+) or via the standalone `--aggregate` CLI mode (v3.1+)
+- **Failure-first HTML report**: The rendered report leads with what broke — pass/fail counts in the summary, a **Failures** table (every failed command tagged with its section, phase and a direct log link) right under the header, and passing sections collapsed by default so only sections containing a failure are expanded. Failing sections and rows sort to the top, the legend and critical-path Gantts fold into a collapsible block, and a **Show only failures** toggle hides everything green. No data is dropped — the full detail is still in the page, just reordered and folded (v3.16+)
 
 ## Configuration
 

@@ -1,3 +1,20 @@
+### 3.16.0
+* **Failure-first HTML report**: restructured `renderReportHtml` so the report is read failures-first
+  instead of top-to-bottom through every passing command. Changes are display-only and fully generic
+  (a "failure" is only `success === false` — no workspace/monorepo knowledge in the renderer):
+  * **Failures block** directly under the status cards — every failed command flattened across all
+    sections onto one table, tagged with its enclosing section, phase, duration and a direct log link.
+    When nothing failed it collapses to a green "All N commands passed" line.
+  * **Pass/fail counts** added to the summary cards (`N passed · M failed`) plus a Sections count.
+  * **Collapse the green**: passing sections render collapsed; only sections that contain a failure are
+    expanded. The legend and both critical-path Gantts move into a collapsible "Legend & performance"
+    foldout so they no longer sit between the reader and the failures.
+  * **Fail-first ordering**: sections that contain a failure sort ahead of clean ones, and within each
+    commands table failed rows float to the top.
+  * **"Show only failures" toggle**: a checkbox (shown only when something failed) that hides every
+    passing row, passing section and the perf foldouts. No information is lost — the full DOM is intact,
+    only reordered and folded.
+
 ### 3.15.2
 * **Interrupted workspace mis-reported as FAILED**: when a workspace's own run is interrupted
   (SIGINT/SIGTERM to the process tree), `finalizeInterrupted()` writes a TERMINAL `success: false`
