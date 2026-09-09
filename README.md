@@ -45,6 +45,7 @@ npm install --save-dev scripts-orchestrator
 - **Per-command metrics**: Record `durationMs`, peak `memoryKb`, and average `cpuPercent` per command via `metrics: ['time', 'memory', 'cpu']` (CPU axis v3.8+)
 - **npm workspace aggregation**: First-class workspace roll-up that discovers the npm workspaces in a repo and rolls each workspace's results JSON — plus the root run's global checks — into a single report. Drive it declaratively with the `aggregate` config key (in-process; v3.2+) or via the standalone `--aggregate` CLI mode (v3.1+)
 - **Failure-first HTML report**: The rendered report leads with what broke — pass/fail counts in the summary, a **Failures** table (every failed command tagged with its section, phase and a direct log link) right under the header, and passing sections collapsed by default so only sections containing a failure are expanded. Failing sections and rows sort to the top, the legend and critical-path Gantts fold into a collapsible block, and a **Show only failures** toggle hides everything green. No data is dropped — the full detail is still in the page, just reordered and folded (v3.16+)
+- **OTEL tracing**: Declarative `otel: true` config key emits an OTEL trace of each gate's command timings (one root span + one child span per command, real start/end times) to a local JSON-Lines file, in-process, with no collector required (v3.17+)
 
 ## Configuration
 
@@ -676,6 +677,48 @@ own exit code.
 ```javascript
 post_run: 'npx scripts-orchestrator --aggregate ../../scripts-orchestrator-aggregate.config.js'
 ```
+
+## OTEL tracing (v3.17+)
+
+Set `otel: true` (or an options object) in your config and every run — lite or full, CI or
+local — emits an OTEL trace of its own command timings: one root span per gate, one child span
+per command, using each command's real start/end time. No collector required — spans are appended
+as JSON-Lines to a local file, in-process, right after `json_results` is written (no subprocess
+spawned, no re-reading the results file off disk).
+
+```javascript
+export default {
+  json_results: './logs/scripts-orchestrator-results.json',
+  otel: true,  // or { serviceName: 'my-service', filePath: '/abs/path/traces.json' }
+  phases: [ /* ... */ ]
+};
+```
+
+- `otel: true` uses the library defaults: `OTEL_EXPORTER_FILE_PATH` under
+  `<logFolder>/.otel-logs/traces.json` — the same `--logFolder` that already holds this gate's
+  `json_results` / `scripts-orchestrator-logs` / run-state file, so traces are scoped exactly like
+  every other artifact the run produces (per-workspace, per-gate, whatever `--logFolder` you
+  passed). Only when no `--logFolder` is given does it fall back to the repo root (nearest
+  ancestor `package.json` declaring `workspaces`, else `process.cwd()` — the same detection
+  [npm workspace aggregation](#npm-workspace-aggregation-v31) uses). `OTEL_SERVICE_NAME` defaults
+  to `scripts-orchestrator:<current-working-directory-basename>`.
+- An options object overrides `serviceName` and/or `filePath` directly.
+- The library also fills in the underlying `OTEL_TRACES_EXPORTER` / `OTEL_EXPORTER_FILE_PATH` /
+  `OTEL_SERVICE_NAME` env vars at startup — but **only vars you haven't already set**, so pointing
+  at a real OTLP collector via your own `OTEL_*` env is left alone and this feature is a no-op.
+- Since traces are scoped per `--logFolder` by default, a monorepo fan-out gets one trace file per
+  workspace/gate rather than one shared file across the whole run — set `filePath` explicitly (the
+  same absolute path from every gate config) if you want everything in one file instead.
+- Non-fatal: any failure emitting a trace only logs a warning, exactly like the `post_run` hook —
+  it never affects the run's own exit code.
+- Built on `@opentelemetry/api` + `@opentelemetry/sdk-trace-base` + `@opentelemetry/resources`
+  (a custom file `SpanExporter` — no official one exists for this). Pinned to the v2 line of the
+  latter two (`resourceFromAttributes()`, `parentSpanContext.spanId`) — v1 pulls in a
+  `@opentelemetry/core` version with a moderate advisory (unbounded memory allocation in W3C
+  Baggage propagation).
+- CLI `--otel` / `--no-otel` overrides the config's `otel` key for a single run either way
+  (mirrors `--no-memory-guard`) — `--otel` forces tracing on even with no `otel` key in the
+  config, `--no-otel` forces it off even when the config sets `otel: true`.
 
 ## npm workspace aggregation (v3.1+)
 

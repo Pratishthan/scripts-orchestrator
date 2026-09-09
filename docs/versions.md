@@ -1,3 +1,25 @@
+### 3.17.0
+* **OTEL tracing, encapsulated in the library**: declarative `otel: true | {...}` config key
+  (`lib/otel/`). Fills in `OTEL_TRACES_EXPORTER=file` / `OTEL_EXPORTER_FILE_PATH` /
+  `OTEL_SERVICE_NAME` env-var defaults at startup (only vars not already set — a real OTLP
+  collector configured via your own `OTEL_*` env is left alone), then turns each gate's
+  already-computed `commands` array (the same entries `json_results` gets — command, phase,
+  success, startedAt, durationMs) into one root span + one child span per command, appended to a
+  local JSON-Lines file via a custom `SpanExporter` (`@opentelemetry/api` +
+  `@opentelemetry/sdk-trace-base` + `@opentelemetry/resources`). Runs in-process right after
+  `writeJsonResults`, so no extra `node` subprocess spawn and no re-reading the results file off
+  disk — an improvement on wiring a `post_run` hook to a separate trace-emission script.
+  Non-fatal, like `post_run`: any failure only warns, never affecting the run's exit code.
+  Defaults `.otel-logs/traces.json` under the gate's own `--logFolder` (falling back to the repo
+  root only when no `logFolder` is known) — the same scoping every other artifact this run
+  produces already gets, rather than one path fixed at the repo root regardless of caller.
+  Pinned to `@opentelemetry/resources`/`@opentelemetry/sdk-trace-base` v2 (`resourceFromAttributes()`
+  instead of the removed `Resource` class; `ReadableSpan.parentSpanContext.spanId` instead of the
+  removed `parentSpanId`) — v1 pulls in a `@opentelemetry/core` version with a moderate advisory
+  (GHSA-8988-4f7v-96qf, unbounded memory allocation in W3C Baggage propagation).
+  CLI `--otel` / `--no-otel` overrides the config's `otel` key for a single run either way,
+  mirroring `--no-memory-guard`.
+
 ### 3.16.0
 * **Failure-first HTML report**: restructured `renderReportHtml` so the report is read failures-first
   instead of top-to-bottom through every passing command. Changes are display-only and fully generic

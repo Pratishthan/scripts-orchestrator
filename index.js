@@ -7,7 +7,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { Orchestrator } from './lib/index.js';
+import { Orchestrator, setupOtelEnvDefaults } from './lib/index.js';
 import { log } from './lib/logger.js';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -90,6 +90,11 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     description:
       'Host-memory safety guard (admission control + abort watchdog). On by default; use --no-memory-guard to disable for this run (overrides config memory_guard).',
+  })
+  .option('otel', {
+    type: 'boolean',
+    description:
+      'Emit an OTEL trace of this run\'s command timings to <logFolder>/.otel-logs/traces.json (see config `otel`). Off by default; --otel forces it on / --no-otel forces it off for this run, overriding config.',
   })
   .help()
   .alias('h', 'help')
@@ -306,6 +311,21 @@ if (aggregateCfg != null && aggregateCfg !== false) {
   }
 }
 
+// Declarative OTEL tracing. `otel: true` uses library defaults (file exporter under
+// `<logFolder>/.otel-logs/traces.json`, falling back to the repo root only when no logFolder is
+// given; service name derived from the workspace); an object overrides `serviceName` / `filePath`.
+// CLI `--otel` / `--no-otel` overrides the config either way for this run (yargs leaves
+// argv.otel undefined when neither flag is passed, so the config-driven default stands).
+// Fills in the OTEL_* env var defaults now (only vars the caller hasn't already set — a real
+// OTLP collector configured via your own OTEL_* env is left alone), so commands run by this gate
+// see the same tracing env a manual setup would give them.
+let otelOptions = null;
+const otelCfg = argv.otel === false ? false : (argv.otel === true ? (commandsConfig.otel ?? true) : commandsConfig.otel);
+if (otelCfg != null && otelCfg !== false) {
+  otelOptions = otelCfg === true ? {} : typeof otelCfg === 'object' ? otelCfg : {};
+  setupOtelEnvDefaults({ logFolder, serviceName: otelOptions.serviceName });
+}
+
 // Set the log folder for the main orchestrator logs if specified
 if (logFolder) {
   log.setLogFolder(logFolder);
@@ -333,6 +353,8 @@ orchestrator.periodicHook = periodicHook;
 orchestrator.periodicIntervalMs = periodicIntervalMs;
 // Wire declarative in-process workspace roll-up (takes the in-process path when set)
 orchestrator.aggregateOptions = aggregateOptions;
+// Wire declarative OTEL tracing (takes the in-process path when set)
+orchestrator.otelOptions = otelOptions;
 // CLI --max-concurrency overrides the config's max_concurrency (resolved to a concrete cap).
 if (argv.maxConcurrency != null && argv.maxConcurrency !== '') {
   orchestrator.maxConcurrency = orchestrator._resolveMaxConcurrency(argv.maxConcurrency);

@@ -1,6 +1,6 @@
 {
   "name": "scripts-orchestrator",
-  "version": "3.16.1",
+  "version": "3.17.0",
   "description": "A powerful script orchestrator for running parallel commands with dependency management, background processes, and health checks",
   "main": "lib/index.js",
   "type": "module",
@@ -40,6 +40,9 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
     "chalk": "^4.1.2",
     "yargs": "^17.7.2"
   },
