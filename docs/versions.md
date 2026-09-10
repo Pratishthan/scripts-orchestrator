@@ -1,3 +1,12 @@
+### 3.18.0
+* **Timestamped log lines**: every log line — console output and the mirrored `orchestrator-main-*.log`
+  file — is now prefixed with a `[HH:MM:SS]` timestamp (`Logger.timestamp()`), ahead of the existing
+  `[INFO]`/`[SUCCESS]`/`[ERROR]`/`[WARN]`/`[VERBOSE]` tag. Applies uniformly to the tagged logger
+  methods, the ephemeral/task spinners (`startEphemeral`/`stopEphemeral`/`startTask`/`updateTask`),
+  `stopPhase`, the initial `[START]` log-file entry, and the handful of one-off `console.log` lines in
+  `orchestrator.js`/`process-manager.js` that bypass the tagged methods (overall-time summary, log-tail
+  hint).
+
 ### 3.17.0
 * **OTEL tracing, encapsulated in the library**: declarative `otel: true | {...}` config key
   (`lib/otel/`). Fills in `OTEL_TRACES_EXPORTER=file` / `OTEL_EXPORTER_FILE_PATH` /
